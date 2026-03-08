@@ -109,11 +109,8 @@ export default function App() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Rutina para Mar, la mayor fan de Melendi</h1>
+        <h1 style={styles.title}>Rutina para Mar, te dedico la canción de tu boda (Temazo)</h1>
 
-        <p style={styles.subtitle}>
-          Rutina enfocada en glúteos, torso y cuádriceps
-        </p>
 
         <img
           src="/sticker.webp"
