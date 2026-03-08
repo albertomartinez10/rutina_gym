@@ -109,7 +109,7 @@ export default function App() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Rutina para Mar, te dedico la canción de tu boda (Temazo)</h1>
+        <h1 style={styles.title}>Rutina para Mar, si entrenas con "Mi canción de boda, levantas más peso" (Temazo)</h1>
 
 
         <img
