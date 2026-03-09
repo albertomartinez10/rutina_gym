@@ -106,6 +106,36 @@ const rutina = [
   },
 ];
 
+const PlanInput = ({ item, onUpdate, onDelete }) => {
+  const [localValue, setLocalValue] = useState(item.plan);
+  const hasChanges = localValue !== item.plan;
+
+  return (
+    <div style={styles.planItem}>
+      <input
+        style={styles.planInput}
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        placeholder="Añade un plan..."
+      />
+      {hasChanges && (
+        <button
+          style={styles.saveBtn}
+          onClick={() => onUpdate(item.id, localValue)}
+        >
+          💾
+        </button>
+      )}
+      <button
+        style={styles.deleteBtn}
+        onClick={() => onDelete(item.id)}
+      >
+        ✕
+      </button>
+    </div>
+  );
+};
+
 export default function App() {
   const [view, setView] = useState("rutina");
   const [excusas, setExcusas] = useState([]);
@@ -302,20 +332,12 @@ export default function App() {
                     <h2 style={styles.diaTitle}>{dia}</h2>
                     <div style={styles.planList}>
                       {itinerario[dia].map((item) => (
-                        <div key={item.id} style={styles.planItem}>
-                          <input
-                            style={styles.planInput}
-                            value={item.plan}
-                            onChange={(e) => updatePlan(item.id, e.target.value)}
-                            placeholder="Añade un plan..."
-                          />
-                          <button
-                            style={styles.deleteBtn}
-                            onClick={() => deletePlan(item.id)}
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        <PlanInput
+                          key={item.id}
+                          item={item}
+                          onUpdate={updatePlan}
+                          onDelete={deletePlan}
+                        />
                       ))}
                     </div>
                     <button
@@ -622,6 +644,20 @@ const styles = {
     color: "white",
     outline: "none",
     transition: "all 0.3s ease",
+  },
+  saveBtn: {
+    background: "rgba(34, 197, 94, 0.1)",
+    color: "#4ade80",
+    border: "none",
+    width: "36px",
+    height: "36px",
+    borderRadius: "12px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "14px",
+    transition: "all 0.2s",
   },
   deleteBtn: {
     background: "rgba(239, 68, 68, 0.1)",
