@@ -136,6 +136,22 @@ const PlanInput = ({ item, onUpdate, onDelete }) => {
   );
 };
 
+const Monigote = ({ src, color, run }) => (
+  <div
+    style={{
+      ...styles.monigote,
+      ...(run ? { animation: "bob 0.35s infinite" } : {}),
+    }}
+  >
+    <img src={src} alt="" draggable={false} style={styles.monigoteHead} />
+    <div style={{ ...styles.monigoteBody, background: color }} />
+    <div style={styles.monigoteLegs}>
+      <span style={{ ...styles.monigoteLeg, background: color }} />
+      <span style={{ ...styles.monigoteLeg, background: color }} />
+    </div>
+  </div>
+);
+
 const ParaMar = () => {
   const [step, setStep] = useState(0);
 
@@ -152,6 +168,18 @@ const ParaMar = () => {
   const CATCH_GOAL = 8;
   const arenaRef = React.useRef(null);
   const basketRef = React.useRef(50);
+  const petalsRef = React.useRef([]);
+
+  // --- Juego 3 (bonus): carrera de monigotes ---
+  const [runPhase, setRunPhase] = useState("idle"); // idle | run | win
+  const [runnerY, setRunnerY] = useState(0);
+  const [obstacles, setObstacles] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const runnerYRef = React.useRef(0);
+  const vyRef = React.useRef(0);
+  const obstaclesRef = React.useRef([]);
+  const progressRef = React.useRef(0);
+  const jumpQueuedRef = React.useRef(false);
 
   const idRef = React.useRef(0);
   const nextId = () => ++idRef.current;
@@ -224,29 +252,36 @@ const ParaMar = () => {
   // ===== JUEGO 2: caída de flores =====
   useEffect(() => {
     if (step !== 3) return;
+    petalsRef.current = [];
 
     const spawn = setInterval(() => {
-      setPetals((prev) => [
-        ...prev,
-        { id: nextId(), x: 8 + Math.random() * 84, y: 0 },
-      ]);
+      petalsRef.current = [
+        ...petalsRef.current,
+        {
+          id: nextId(),
+          x: 8 + Math.random() * 84,
+          y: 0,
+          cactus: Math.random() < 0.3,
+        },
+      ];
     }, 850);
 
     const fall = setInterval(() => {
-      setPetals((prev) => {
-        const next = [];
-        prev.forEach((p) => {
-          const ny = p.y + 3.5;
-          if (ny >= 84) {
-            if (Math.abs(basketRef.current - p.x) < 11) {
-              setScore2((s) => s + 1);
-            }
-            return;
+      let delta = 0;
+      const next = [];
+      petalsRef.current.forEach((p) => {
+        const ny = p.y + 3.5;
+        if (ny >= 84) {
+          if (Math.abs(basketRef.current - p.x) < 11) {
+            delta += p.cactus ? -1 : 1;
           }
-          next.push({ ...p, y: ny });
-        });
-        return next;
+          return;
+        }
+        next.push({ ...p, y: ny });
       });
+      petalsRef.current = next;
+      setPetals(next);
+      if (delta !== 0) setScore2((s) => Math.max(0, s + delta));
     }, 40);
 
     return () => {
@@ -268,6 +303,96 @@ const ParaMar = () => {
     setStep(3);
   };
 
+  // ===== JUEGO 3 (bonus): carrera de monigotes =====
+  const startBonus = () => {
+    runnerYRef.current = 0;
+    vyRef.current = 0;
+    obstaclesRef.current = [];
+    progressRef.current = 0;
+    jumpQueuedRef.current = false;
+    setRunnerY(0);
+    setObstacles([]);
+    setProgress(0);
+    setRunPhase("run");
+  };
+
+  const jump = () => {
+    if (runPhase !== "run") return;
+    jumpQueuedRef.current = true;
+  };
+
+  useEffect(() => {
+    if (step !== 4 || runPhase !== "run") return;
+
+    const RUNNER_X = 14;
+    let tick = 0;
+    let lastSpawn = -20;
+
+    const loop = setInterval(() => {
+      tick++;
+
+      // salto
+      if (jumpQueuedRef.current && runnerYRef.current <= 0.5) {
+        vyRef.current = 15;
+        jumpQueuedRef.current = false;
+      }
+      // física
+      vyRef.current -= 1.1;
+      runnerYRef.current += vyRef.current;
+      if (runnerYRef.current < 0) {
+        runnerYRef.current = 0;
+        vyRef.current = 0;
+      }
+
+      // generar obstáculos (hielo / pingüino), parar cerca del final
+      if (progressRef.current < 86 && tick - lastSpawn > 30) {
+        lastSpawn = tick;
+        obstaclesRef.current = [
+          ...obstaclesRef.current,
+          {
+            id: nextId(),
+            x: 108,
+            hit: false,
+            type: Math.random() < 0.5 ? "ice" : "penguin",
+          },
+        ];
+      }
+
+      // mover obstáculos + colisiones
+      let hit = false;
+      const next = [];
+      obstaclesRef.current.forEach((o) => {
+        const nx = o.x - 2.4;
+        if (nx < -8) return;
+        if (!o.hit && Math.abs(nx - RUNNER_X) < 6 && runnerYRef.current < 44) {
+          hit = true;
+          o.hit = true;
+        }
+        next.push({ ...o, x: nx });
+      });
+      obstaclesRef.current = next;
+
+      if (hit) {
+        progressRef.current = Math.max(0, progressRef.current - 8);
+      } else {
+        progressRef.current = Math.min(100, progressRef.current + 0.22);
+      }
+
+      setRunnerY(runnerYRef.current);
+      setObstacles(next);
+      setProgress(Math.round(progressRef.current));
+
+      // termina justo al chocar/alcanzar a Alberto
+      if (progressRef.current >= 100) {
+        clearInterval(loop);
+        setRunPhase("win");
+        setTimeout(() => setStep(5), 1400);
+      }
+    }, 32);
+
+    return () => clearInterval(loop);
+  }, [step, runPhase]);
+
   const moveBasket = (e) => {
     const arena = arenaRef.current;
     if (!arena) return;
@@ -284,6 +409,9 @@ const ParaMar = () => {
     setScore2(0);
     setTargets([]);
     setPetals([]);
+    setRunPhase("idle");
+    setObstacles([]);
+    setProgress(0);
     setStep(0);
   };
 
@@ -299,7 +427,8 @@ const ParaMar = () => {
             a parecer un tutorial 😏
           </p>
           <p style={styles.marHint}>
-            (Yo me peleo con el código como tú con los campers 🐛)
+            Aquí tienes una serie de pruebas que tendrás que superar para
+            descubrir la sorpresa final 👇
           </p>
           <div style={styles.briefingCard}>
             <p style={styles.briefingLine}>🎯 Nivel 1 — Tiroteo de corazones</p>
@@ -350,8 +479,7 @@ const ParaMar = () => {
         <div style={styles.marStep}>
           <p style={styles.marText}>¡Casi! Se acabó el tiempo ⏱️</p>
           <p style={styles.marHint}>
-            Esto tiene más drama que cualquier reality que ves 📺... pero con
-            final feliz.
+           Va nano, más díficl era aguantar una semana pasando frío...
           </p>
           <p style={styles.marText}>
             Una profesional como tú no falla dos veces 😏
@@ -383,7 +511,9 @@ const ParaMar = () => {
       {/* PASO 3 — Atrapar flores */}
       {step === 3 && (
         <div style={styles.marStep}>
-          <p style={styles.marText}>Mueve la cesta 🧺 y atrapa las flores</p>
+          <p style={styles.marText}>
+            ¡Muévete y atrapa las flores 🌸 con tu cara — esquiva los cactus 🌵!
+          </p>
           <div style={styles.hud}>
             <span style={styles.hudItem}>💐 {score2}/{CATCH_GOAL}</span>
           </div>
@@ -398,10 +528,15 @@ const ParaMar = () => {
                 key={p.id}
                 style={{ ...styles.petal, left: `${p.x}%`, top: `${p.y}%` }}
               >
-                🌸
+                {p.cactus ? "🌵" : "🌸"}
               </span>
             ))}
-            <span style={{ ...styles.basket, left: `${basketX}%` }}>🧺</span>
+            <img
+              src="/foto-mar.jpg"
+              alt="Mar"
+              draggable={false}
+              style={{ ...styles.basketFace, left: `${basketX}%` }}
+            />
           </div>
           <p style={styles.marHint}>
             Pasa el dedo / ratón por el área para mover la cesta
@@ -409,23 +544,96 @@ const ParaMar = () => {
         </div>
       )}
 
-      {/* PASO 4 — Modo superestrella (Aitana) */}
+      {/* PASO 4 — Carrera de monigotes */}
       {step === 4 && (
         <div style={styles.marStep}>
-          <div style={styles.starEmoji}>🌟</div>
-          <p style={styles.marText}>
-            Que conste que para mí ya eres una <b>superestrella</b> ✨
-          </p>
-          <p style={styles.marHint}>
-            (sí, como la canción de Aitana 🎶 — dale al play mentalmente)
-          </p>
-          <p style={styles.marText}>
-            Y mientras suena nuestra canción de boda de fondo 💍🎵... vamos a por
-            tu recompensa.
-          </p>
-          <button style={styles.marBigBtn} onClick={() => setStep(5)}>
-            Reclamar recompensa 💝
-          </button>
+          {runPhase === "idle" && (
+            <>
+              <div style={styles.monigotePreview}>
+                <Monigote src="/foto-mar.jpg" color="#ec4899" />
+                <span style={styles.previewHeart}>❤️</span>
+                <Monigote src="/foto-alberto.jpg" color="#3b82f6" />
+              </div>
+              <p style={styles.marText}>
+                Última prueba: ¡corre hasta él! 🏃‍♀️
+              </p>
+              <p style={styles.marHint}>
+                Toca la pantalla para <b>saltar</b> el frío polar de Albacete 🧊 y los pingüinos 🐧 que hay en el camino... ¡y no te caigas!
+              </p>
+              <button style={styles.marBigBtn} onClick={startBonus}>
+                ¡A correr! 🏃‍♀️💨
+              </button>
+            </>
+          )}
+
+          {runPhase !== "idle" && (
+            <>
+              <p style={styles.marText}>
+                {runPhase === "win"
+                  ? "¡Lo conseguiste! 🥹❤️"
+                  : "¡Salta el hielo 🧊 y los pingüinos 🐧 hasta llegar a él! 👆"}
+              </p>
+
+              <div style={styles.hud}>
+                <span style={styles.hudItem}>📍 {progress}%</span>
+              </div>
+
+              <div
+                style={styles.runArena}
+                onPointerDown={jump}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  jump();
+                }}
+              >
+                {/* suelo */}
+                <div style={styles.ground} />
+
+                {/* monigote corredor (Mar) */}
+                <div
+                  style={{
+                    ...styles.runner,
+                    left: "14%",
+                    bottom: `${28 + runnerY}px`,
+                  }}
+                >
+                  <Monigote
+                    src="/foto-mar.jpg"
+                    color="#ec4899"
+                    run={runPhase === "run" && runnerY <= 0.5}
+                  />
+                </div>
+
+                {/* obstáculos: hielo y pingüinos */}
+                {obstacles.map((o) => (
+                  <span
+                    key={o.id}
+                    style={{ ...styles.runCactus, left: `${o.x}%` }}
+                  >
+                    {o.type === "penguin" ? "🐧" : "🧊"}
+                  </span>
+                ))}
+
+                {/* meta: Alberto en Barcelona, se acerca según avanzas */}
+                <div
+                  style={{
+                    ...styles.finishMar,
+                    left: `${90 - (progress / 100) * 67}%`,
+                  }}
+                >
+                  {runPhase === "win" && (
+                    <span style={styles.finishHeart}>❤️</span>
+                  )}
+                  <div style={styles.barcelonaSign}>📍 Barcelona</div>
+                  <Monigote src="/foto-alberto.jpg" color="#3b82f6" />
+                </div>
+              </div>
+
+              {runPhase === "run" && (
+                <p style={styles.marHint}>Toca para saltar 👆</p>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -441,7 +649,7 @@ const ParaMar = () => {
           <div style={styles.finalCard}>
             <p style={styles.finalText}>
               Todo esto porque te mereces que te devuelvan todos los detalles que
-              tú tienes y que nadie ha sabido devolverte 💛
+              tú has tenido y que no han sabido devolverte, ya verás como te llegará todo lo que mereces 💛
             </p>
             <p style={styles.finalText}>
               Si supiese dónde vives, te mandaría flores...
@@ -460,7 +668,16 @@ const ParaMar = () => {
 };
 
 export default function App() {
-  const [view, setView] = useState("rutina");
+  const viewFromHash = () => {
+    const map = {
+      "#para-ti": "paraMar",
+      "#rutina": "rutina",
+      "#excusas": "excusas",
+      "#planes": "planes",
+    };
+    return map[window.location.hash] || "rutina";
+  };
+  const [view, setView] = useState(viewFromHash);
   const [excusas, setExcusas] = useState([]);
   const [itinerario, setItinerario] = useState({
     Viernes: [],
@@ -468,6 +685,34 @@ export default function App() {
     Domingo: [],
   });
   const [loading, setLoading] = useState(true);
+
+  // Sincronizar la URL (#para-ti) con la vista actual para poder compartir enlace
+  useEffect(() => {
+    const hashMap = {
+      paraMar: "#para-ti",
+      rutina: "#rutina",
+      excusas: "#excusas",
+      planes: "#planes",
+    };
+    const target = hashMap[view] || "";
+    if (window.location.hash !== target) {
+      window.history.replaceState(null, "", target || window.location.pathname);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    const onHash = () => {
+      const map = {
+        "#para-ti": "paraMar",
+        "#rutina": "rutina",
+        "#excusas": "excusas",
+        "#planes": "planes",
+      };
+      setView(map[window.location.hash] || "rutina");
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // Cargar datos al iniciar
   useEffect(() => {
@@ -715,6 +960,15 @@ export default function App() {
           0% { transform: rotate(0deg) scale(1); }
           50% { transform: rotate(15deg) scale(1.15); }
           100% { transform: rotate(0deg) scale(1); }
+        }
+        @keyframes bob {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+          100% { transform: translateY(0); }
+        }
+        @keyframes floatUp {
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-22px); }
         }
       `}</style>
     </div>
@@ -1176,9 +1430,124 @@ const styles = {
     userSelect: "none",
     filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.4))",
   },
+  basketFace: {
+    position: "absolute",
+    bottom: "8px",
+    transform: "translateX(-50%)",
+    width: "64px",
+    height: "64px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "3px solid #f472b6",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+    pointerEvents: "none",
+    userSelect: "none",
+  },
   starEmoji: {
     fontSize: "70px",
     animation: "starSpin 2s ease-in-out infinite",
+  },
+  // monigote (figura con cara)
+  monigote: {
+    position: "relative",
+    width: "46px",
+    height: "78px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  monigoteHead: {
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "3px solid white",
+    boxShadow: "0 3px 8px rgba(0,0,0,0.4)",
+    zIndex: 2,
+  },
+  monigoteBody: {
+    width: "10px",
+    height: "26px",
+    borderRadius: "6px",
+    marginTop: "-2px",
+  },
+  monigoteLegs: {
+    display: "flex",
+    gap: "8px",
+    marginTop: "-2px",
+  },
+  monigoteLeg: {
+    width: "5px",
+    height: "14px",
+    borderRadius: "4px",
+  },
+  monigotePreview: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "12px",
+  },
+  previewHeart: {
+    fontSize: "28px",
+    animation: "pulse 1.5s infinite",
+  },
+  runArena: {
+    position: "relative",
+    width: "100%",
+    maxWidth: "480px",
+    height: "240px",
+    background:
+      "linear-gradient(to bottom, rgba(59,130,246,0.12), rgba(236,72,153,0.10))",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "24px",
+    overflow: "hidden",
+    touchAction: "none",
+    cursor: "pointer",
+  },
+  ground: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: "24px",
+    height: "3px",
+    background: "rgba(255,255,255,0.25)",
+  },
+  runner: {
+    position: "absolute",
+    transform: "translateX(-50%)",
+    transition: "bottom 0.03s linear",
+  },
+  runCactus: {
+    position: "absolute",
+    bottom: "26px",
+    transform: "translateX(-50%)",
+    fontSize: "38px",
+    userSelect: "none",
+    pointerEvents: "none",
+  },
+  finishMar: {
+    position: "absolute",
+    bottom: "28px",
+    transform: "translateX(-50%)",
+    transition: "left 0.05s linear",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  finishHeart: {
+    fontSize: "26px",
+    animation: "floatUp 0.8s ease-out infinite",
+  },
+  barcelonaSign: {
+    background: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.25)",
+    borderRadius: "10px",
+    padding: "3px 8px",
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#f8fafc",
+    marginBottom: "4px",
+    whiteSpace: "nowrap",
   },
   flowersGif: {
     width: "100%",
