@@ -136,6 +136,329 @@ const PlanInput = ({ item, onUpdate, onDelete }) => {
   );
 };
 
+const ParaMar = () => {
+  const [step, setStep] = useState(0);
+
+  // --- Juego 1: shooter de corazones ---
+  const [targets, setTargets] = useState([]);
+  const [score1, setScore1] = useState(0);
+  const [time1, setTime1] = useState(20);
+  const SCORE_GOAL = 12;
+
+  // --- Juego 2: atrapar flores ---
+  const [petals, setPetals] = useState([]);
+  const [basketX, setBasketX] = useState(50);
+  const [score2, setScore2] = useState(0);
+  const CATCH_GOAL = 8;
+  const arenaRef = React.useRef(null);
+  const basketRef = React.useRef(50);
+
+  const idRef = React.useRef(0);
+  const nextId = () => ++idRef.current;
+
+  // ===== JUEGO 1: spawn + reloj =====
+  useEffect(() => {
+    if (step !== 1) return;
+
+    const spawn = setInterval(() => {
+      const isBomb = Math.random() < 0.25;
+      const t = {
+        id: nextId(),
+        x: 8 + Math.random() * 80,
+        y: 12 + Math.random() * 70,
+        bomb: isBomb,
+      };
+      setTargets((prev) => [...prev, t]);
+      setTimeout(() => {
+        setTargets((prev) => prev.filter((x) => x.id !== t.id));
+      }, 1400);
+    }, 650);
+
+    const clock = setInterval(() => {
+      setTime1((prev) => {
+        if (prev <= 1) {
+          clearInterval(clock);
+          clearInterval(spawn);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(spawn);
+      clearInterval(clock);
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step === 1 && score1 >= SCORE_GOAL) {
+      const id = setTimeout(() => setStep(2), 700);
+      return () => clearTimeout(id);
+    }
+  }, [score1, step]);
+
+  useEffect(() => {
+    if (step === 1 && time1 === 0 && score1 < SCORE_GOAL) {
+      const id = setTimeout(() => setStep(1.5), 300);
+      return () => clearTimeout(id);
+    }
+  }, [time1, step, score1]);
+
+  const startGame1 = () => {
+    setScore1(0);
+    setTime1(20);
+    setTargets([]);
+    setStep(1);
+  };
+
+  const shoot = (t) => {
+    setTargets((prev) => prev.filter((x) => x.id !== t.id));
+    if (t.bomb) {
+      setScore1((s) => Math.max(0, s - 2));
+    } else {
+      setScore1((s) => s + 1);
+    }
+  };
+
+  // ===== JUEGO 2: caída de flores =====
+  useEffect(() => {
+    if (step !== 3) return;
+
+    const spawn = setInterval(() => {
+      setPetals((prev) => [
+        ...prev,
+        { id: nextId(), x: 8 + Math.random() * 84, y: 0 },
+      ]);
+    }, 850);
+
+    const fall = setInterval(() => {
+      setPetals((prev) => {
+        const next = [];
+        prev.forEach((p) => {
+          const ny = p.y + 3.5;
+          if (ny >= 84) {
+            if (Math.abs(basketRef.current - p.x) < 11) {
+              setScore2((s) => s + 1);
+            }
+            return;
+          }
+          next.push({ ...p, y: ny });
+        });
+        return next;
+      });
+    }, 40);
+
+    return () => {
+      clearInterval(spawn);
+      clearInterval(fall);
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step === 3 && score2 >= CATCH_GOAL) {
+      const id = setTimeout(() => setStep(4), 700);
+      return () => clearTimeout(id);
+    }
+  }, [score2, step]);
+
+  const startGame2 = () => {
+    setScore2(0);
+    setPetals([]);
+    setStep(3);
+  };
+
+  const moveBasket = (e) => {
+    const arena = arenaRef.current;
+    if (!arena) return;
+    const r = arena.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pct = ((clientX - r.left) / r.width) * 100;
+    const clamped = Math.max(6, Math.min(94, pct));
+    basketRef.current = clamped;
+    setBasketX(clamped);
+  };
+
+  const resetAll = () => {
+    setScore1(0);
+    setScore2(0);
+    setTargets([]);
+    setPetals([]);
+    setStep(0);
+  };
+
+  return (
+    <div style={styles.fadeIn}>
+      <h1 style={styles.title}>Operación reconciliación con Mar 💌</h1>
+
+      {/* PASO 0 — Briefing */}
+      {step === 0 && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>
+            Sé que eres una profesional del Call of Duty 🎮... así que esto te va
+            a parecer un tutorial 😏
+          </p>
+          <p style={styles.marHint}>
+            (Yo me peleo con el código como tú con los campers 🐛)
+          </p>
+          <div style={styles.briefingCard}>
+            <p style={styles.briefingLine}>🎯 Nivel 1 — Tiroteo de corazones</p>
+            <p style={styles.briefingLine}>💐 Nivel 2 — Atrapa las flores</p>
+            <p style={styles.briefingLine}>🎵 Bonus — Modo superestrella</p>
+            <p style={styles.briefingLine}>💌 Recompensa — Una sorpresa</p>
+          </div>
+          <p style={styles.marHintSoft}>
+            Pro tip: ponte nuestra canción de boda de fondo 🎵💍
+          </p>
+          <button style={styles.marBigBtn} onClick={startGame1}>
+            ¡Empezar misión! 🔫
+          </button>
+        </div>
+      )}
+
+      {/* PASO 1 — Shooter */}
+      {step === 1 && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>
+            Dispara a los corazones ❤️ — ¡esquiva las bombas 💣!
+          </p>
+          <div style={styles.hud}>
+            <span style={styles.hudItem}>🎯 {score1}/{SCORE_GOAL}</span>
+            <span style={styles.hudItem}>⏱️ {time1}s</span>
+          </div>
+          <div style={styles.gameArena}>
+            {targets.map((t) => (
+              <button
+                key={t.id}
+                onPointerDown={() => shoot(t)}
+                style={{
+                  ...styles.target,
+                  left: `${t.x}%`,
+                  top: `${t.y}%`,
+                  ...(t.bomb ? styles.bomb : {}),
+                }}
+              >
+                {t.bomb ? "💣" : "❤️"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PASO 1.5 — Reintento con humor */}
+      {step === 1.5 && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>¡Casi! Se acabó el tiempo ⏱️</p>
+          <p style={styles.marHint}>
+            Esto tiene más drama que cualquier reality que ves 📺... pero con
+            final feliz.
+          </p>
+          <p style={styles.marText}>
+            Una profesional como tú no falla dos veces 😏
+          </p>
+          <button style={styles.marBigBtn} onClick={startGame1}>
+            Revancha 🔁
+          </button>
+        </div>
+      )}
+
+      {/* PASO 2 — Transición */}
+      {step === 2 && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>🏆 ¡Nivel completado, killer!</p>
+          <p style={styles.marHint}>
+            Spoiler: programar esto me costó menos que a ti salir de debajo de la
+            manta un día de frío en Albacete 🥶
+          </p>
+          <p style={styles.marText}>
+            Vale menos que una entrada para ver a Harry Styles 💛... pero le he
+            puesto el doble de cariño.
+          </p>
+          <button style={styles.marBigBtn} onClick={startGame2}>
+            Siguiente nivel 🌸
+          </button>
+        </div>
+      )}
+
+      {/* PASO 3 — Atrapar flores */}
+      {step === 3 && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>Mueve la cesta 🧺 y atrapa las flores</p>
+          <div style={styles.hud}>
+            <span style={styles.hudItem}>💐 {score2}/{CATCH_GOAL}</span>
+          </div>
+          <div
+            ref={arenaRef}
+            style={styles.gameArena}
+            onPointerMove={moveBasket}
+            onTouchMove={moveBasket}
+          >
+            {petals.map((p) => (
+              <span
+                key={p.id}
+                style={{ ...styles.petal, left: `${p.x}%`, top: `${p.y}%` }}
+              >
+                🌸
+              </span>
+            ))}
+            <span style={{ ...styles.basket, left: `${basketX}%` }}>🧺</span>
+          </div>
+          <p style={styles.marHint}>
+            Pasa el dedo / ratón por el área para mover la cesta
+          </p>
+        </div>
+      )}
+
+      {/* PASO 4 — Modo superestrella (Aitana) */}
+      {step === 4 && (
+        <div style={styles.marStep}>
+          <div style={styles.starEmoji}>🌟</div>
+          <p style={styles.marText}>
+            Que conste que para mí ya eres una <b>superestrella</b> ✨
+          </p>
+          <p style={styles.marHint}>
+            (sí, como la canción de Aitana 🎶 — dale al play mentalmente)
+          </p>
+          <p style={styles.marText}>
+            Y mientras suena nuestra canción de boda de fondo 💍🎵... vamos a por
+            tu recompensa.
+          </p>
+          <button style={styles.marBigBtn} onClick={() => setStep(5)}>
+            Reclamar recompensa 💝
+          </button>
+        </div>
+      )}
+
+      {/* PASO 5 — Final */}
+      {step === 5 && (
+        <div style={{ ...styles.marStep, ...styles.fadeIn }}>
+          <p style={styles.marText}>🎉 ¡Misión completada, Mar!</p>
+          <img
+            src="https://www.flowershopbarcelona.com/cdn/shop/products/image_8b6728b5-b78f-4e5a-8559-965d25936d18.jpg?v=1681821603"
+            alt="Ramo de flores"
+            style={styles.flowersGif}
+          />
+          <div style={styles.finalCard}>
+            <p style={styles.finalText}>
+              Todo esto porque te mereces que te devuelvan todos los detalles que
+              tú tienes y que nadie ha sabido devolverte 💛
+            </p>
+            <p style={styles.finalText}>
+              Si supiese dónde vives, te mandaría flores...
+              <br />
+              pero como no lo sé, espero que te conformes con esto 🌷
+            </p>
+            <div style={styles.emojiFlowers}>🌹🌷🌸💐🌻🌼</div>
+          </div>
+          <button style={styles.marSmallBtn} onClick={resetAll}>
+            Volver a jugar 🔁
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const [view, setView] = useState("rutina");
   const [excusas, setExcusas] = useState([]);
@@ -250,6 +573,12 @@ export default function App() {
             >
               📅 20 Marzo
             </button>
+            <button
+              style={{ ...styles.navButton, ...(view === "paraMar" ? styles.navButtonActive : {}) }}
+              onClick={() => setView("paraMar")}
+            >
+              💌 Para Ti
+            </button>
           </div>
         </div>
 
@@ -351,6 +680,8 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {view === "paraMar" && <ParaMar />}
         </div>
 
         {loading && (
@@ -369,6 +700,21 @@ export default function App() {
           0% { transform: translate(0, 0); }
           50% { transform: translate(20px, -20px); }
           100% { transform: translate(0, 0); }
+        }
+        @keyframes pulse {
+          0% { box-shadow: 0 10px 30px rgba(236, 72, 153, 0.4); }
+          50% { box-shadow: 0 10px 40px rgba(236, 72, 153, 0.7); }
+          100% { box-shadow: 0 10px 30px rgba(236, 72, 153, 0.4); }
+        }
+        @keyframes pop {
+          0% { transform: scale(0); }
+          70% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        @keyframes starSpin {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(15deg) scale(1.15); }
+          100% { transform: rotate(0deg) scale(1); }
         }
       `}</style>
     </div>
@@ -702,5 +1048,166 @@ const styles = {
     fontSize: "20px",
     fontWeight: "bold",
     letterSpacing: "1px",
-  }
+  },
+
+  // ---- Para Mar (juego) ----
+  marStep: {
+    maxWidth: "560px",
+    margin: "0 auto",
+    textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+    padding: "20px",
+  },
+  marText: {
+    fontSize: "20px",
+    color: "#f1f5f9",
+    fontWeight: "500",
+    lineHeight: 1.6,
+    margin: 0,
+  },
+  marHint: {
+    color: "#f472b6",
+    fontSize: "15px",
+    fontWeight: "600",
+    margin: 0,
+  },
+  marHintSoft: {
+    color: "#94a3b8",
+    fontSize: "14px",
+    fontStyle: "italic",
+    margin: 0,
+  },
+  briefingCard: {
+    background: "rgba(255, 255, 255, 0.04)",
+    backdropFilter: "blur(12px)",
+    borderRadius: "20px",
+    padding: "20px 28px",
+    border: "1px solid rgba(244, 114, 182, 0.2)",
+    textAlign: "left",
+    width: "100%",
+    maxWidth: "360px",
+  },
+  briefingLine: {
+    fontSize: "16px",
+    color: "#e2e8f0",
+    fontWeight: "600",
+    margin: "10px 0",
+  },
+  marBigBtn: {
+    background: "linear-gradient(135deg, #ec4899, #8b5cf6)",
+    color: "white",
+    border: "none",
+    padding: "18px 36px",
+    borderRadius: "20px",
+    fontSize: "18px",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: "0 10px 30px rgba(236, 72, 153, 0.4)",
+    animation: "pulse 2s infinite",
+  },
+  marSmallBtn: {
+    background: "rgba(255,255,255,0.06)",
+    color: "#cbd5e1",
+    border: "1px solid rgba(255,255,255,0.12)",
+    padding: "12px 24px",
+    borderRadius: "14px",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
+  },
+  hud: {
+    display: "flex",
+    gap: "16px",
+    justifyContent: "center",
+  },
+  hudItem: {
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "12px",
+    padding: "8px 16px",
+    fontSize: "17px",
+    fontWeight: "700",
+    color: "#f8fafc",
+  },
+  gameArena: {
+    position: "relative",
+    width: "100%",
+    maxWidth: "480px",
+    height: "360px",
+    background:
+      "linear-gradient(160deg, rgba(139, 92, 246, 0.12), rgba(236, 72, 153, 0.12))",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "24px",
+    overflow: "hidden",
+    touchAction: "none",
+    cursor: "crosshair",
+  },
+  target: {
+    position: "absolute",
+    transform: "translate(-50%, -50%)",
+    background: "transparent",
+    border: "none",
+    fontSize: "40px",
+    cursor: "pointer",
+    padding: 0,
+    lineHeight: 1,
+    animation: "pop 0.2s ease-out",
+    userSelect: "none",
+  },
+  bomb: {
+    fontSize: "44px",
+  },
+  petal: {
+    position: "absolute",
+    transform: "translate(-50%, -50%)",
+    fontSize: "34px",
+    pointerEvents: "none",
+    userSelect: "none",
+  },
+  basket: {
+    position: "absolute",
+    bottom: "8px",
+    transform: "translateX(-50%)",
+    fontSize: "48px",
+    pointerEvents: "none",
+    userSelect: "none",
+    filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.4))",
+  },
+  starEmoji: {
+    fontSize: "70px",
+    animation: "starSpin 2s ease-in-out infinite",
+  },
+  flowersGif: {
+    width: "100%",
+    maxWidth: "340px",
+    borderRadius: "24px",
+    boxShadow: "0 20px 50px rgba(236, 72, 153, 0.3)",
+  },
+  finalCard: {
+    background: "rgba(255, 255, 255, 0.04)",
+    backdropFilter: "blur(16px)",
+    borderRadius: "28px",
+    padding: "32px",
+    border: "1px solid rgba(244, 114, 182, 0.2)",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
+  finalText: {
+    fontSize: "21px",
+    color: "#fce7f3",
+    fontWeight: "600",
+    lineHeight: 1.6,
+    fontStyle: "italic",
+    margin: 0,
+  },
+  emojiFlowers: {
+    fontSize: "34px",
+    marginTop: "8px",
+    letterSpacing: "4px",
+  },
 };
