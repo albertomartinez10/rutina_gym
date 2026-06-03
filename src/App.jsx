@@ -679,6 +679,7 @@ export default function App() {
   };
   const [view, setView] = useState(viewFromHash);
   const [excusas, setExcusas] = useState([]);
+  const [newExcuse, setNewExcuse] = useState("");
   const [itinerario, setItinerario] = useState({
     Viernes: [],
     Sabado: [],
@@ -762,6 +763,24 @@ export default function App() {
       .update({ completed: !currentStatus })
       .eq('id', id);
 
+    if (!error) fetchData();
+  };
+
+  const addExcuse = async () => {
+    const text = newExcuse.trim();
+    if (!text) return;
+    const { error } = await supabase
+      .from('excusas')
+      .insert([{ text, completed: false }]);
+
+    if (!error) {
+      setNewExcuse("");
+      fetchData();
+    }
+  };
+
+  const deleteExcuse = async (id) => {
+    const { error } = await supabase.from('excusas').delete().eq('id', id);
     if (!error) fetchData();
   };
 
@@ -869,7 +888,28 @@ export default function App() {
           {view === "excusas" && (
             <div style={styles.fadeIn}>
               <h1 style={styles.title}>Excusas para verte otra vez</h1>
+
+              <div style={styles.excusaAddRow}>
+                <input
+                  style={styles.excusaInput}
+                  value={newExcuse}
+                  onChange={(e) => setNewExcuse(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addExcuse();
+                  }}
+                  placeholder="Escribe una excusa nueva..."
+                />
+                <button style={styles.excusaAddBtn} onClick={addExcuse}>
+                  + Añadir
+                </button>
+              </div>
+
               <div style={styles.excusasGrid}>
+                {excusas.length === 0 && (
+                  <p style={styles.excusaEmpty}>
+                    Aún no hay excusas. ¡Escribe la primera arriba! 💡
+                  </p>
+                )}
                 {excusas.map((excusa) => (
                   <div
                     key={excusa.id}
@@ -891,6 +931,15 @@ export default function App() {
                     }}>
                       {excusa.text}
                     </span>
+                    <button
+                      style={styles.excusaDeleteBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteExcuse(excusa.id);
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1152,6 +1201,51 @@ const styles = {
     gap: "15px",
     maxWidth: "600px",
     margin: "0 auto",
+  },
+  excusaAddRow: {
+    display: "flex",
+    gap: "12px",
+    maxWidth: "600px",
+    margin: "0 auto 24px auto",
+  },
+  excusaInput: {
+    flex: 1,
+    padding: "16px 20px",
+    borderRadius: "16px",
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "rgba(255, 255, 255, 0.04)",
+    fontSize: "16px",
+    color: "white",
+    outline: "none",
+  },
+  excusaAddBtn: {
+    background: "linear-gradient(135deg, #ec4899, #8b5cf6)",
+    color: "white",
+    border: "none",
+    padding: "0 24px",
+    borderRadius: "16px",
+    fontSize: "15px",
+    fontWeight: "700",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+  excusaEmpty: {
+    textAlign: "center",
+    color: "#94a3b8",
+    fontSize: "16px",
+    fontStyle: "italic",
+  },
+  excusaDeleteBtn: {
+    background: "rgba(239, 68, 68, 0.1)",
+    color: "#f87171",
+    border: "none",
+    width: "32px",
+    height: "32px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontSize: "14px",
+    flexShrink: 0,
+    marginLeft: "auto",
   },
   excusaCard: {
     background: "rgba(255, 255, 255, 0.04)",
