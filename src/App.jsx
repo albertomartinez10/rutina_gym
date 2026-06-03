@@ -417,7 +417,7 @@ const ParaMar = () => {
 
   return (
     <div style={styles.fadeIn}>
-      <h1 style={styles.title}>Operación reconciliación con Mar 💌</h1>
+      <h1 style={styles.title}>Un detallito para Mar 💌</h1>
 
       {/* PASO 0 — Briefing */}
       {step === 0 && (
