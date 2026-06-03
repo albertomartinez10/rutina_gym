@@ -433,7 +433,7 @@ const ParaMar = () => {
           <div style={styles.briefingCard}>
             <p style={styles.briefingLine}>🎯 Nivel 1 — Tiroteo de corazones</p>
             <p style={styles.briefingLine}>💐 Nivel 2 — Atrapa las flores</p>
-            <p style={styles.briefingLine}>🎵 Bonus — Modo superestrella</p>
+            <p style={styles.briefingLine}>🧊 Bonus — Escapar del gélido amor</p>
             <p style={styles.briefingLine}>💌 Recompensa — Una sorpresa</p>
           </div>
           <p style={styles.marHintSoft}>
