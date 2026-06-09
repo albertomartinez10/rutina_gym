@@ -667,10 +667,270 @@ const ParaMar = () => {
   );
 };
 
+const SONG_URL = "/cancion-boda.mp3";
+
+const Sorpresa = () => {
+  const [phase, setPhase] = useState("idle"); // idle | play | dead | win
+  const [score, setScore] = useState(0);
+  const [player, setPlayer] = useState({ x: 50, y: 80 });
+  const [target, setTarget] = useState({ x: 50, y: 20 });
+  const [obstacles, setObstacles] = useState([]);
+
+  const GOAL = 10;
+  const arenaRef = React.useRef(null);
+  const playerRef = React.useRef({ x: 50, y: 80 });
+  const targetRef = React.useRef({ x: 50, y: 20 });
+  const obstaclesRef = React.useRef([]);
+  const scoreRef = React.useRef(0);
+  const idRef = React.useRef(0);
+
+  const rnd = (min, max) => min + Math.random() * (max - min);
+
+  const newObstacle = () => {
+    const angle = rnd(0, Math.PI * 2);
+    const speed = rnd(1.3, 1.9);
+    return {
+      id: ++idRef.current,
+      x: rnd(15, 85),
+      y: rnd(12, 45),
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+    };
+  };
+
+  // obstáculo que no aparece pegado a tu posición inicial
+  const safeObstacle = () => {
+    let o;
+    let tries = 0;
+    do {
+      o = newObstacle();
+      tries++;
+    } while (
+      Math.hypot(o.x - playerRef.current.x, o.y - playerRef.current.y) < 32 &&
+      tries < 15
+    );
+    return o;
+  };
+
+  const relocateTarget = () => {
+    let t;
+    let tries = 0;
+    do {
+      t = { x: rnd(10, 90), y: rnd(10, 85) };
+      tries++;
+    } while (
+      Math.hypot(t.x - playerRef.current.x, t.y - playerRef.current.y) < 25 &&
+      tries < 10
+    );
+    targetRef.current = t;
+    setTarget(t);
+  };
+
+  const start = () => {
+    scoreRef.current = 0;
+    setScore(0);
+    playerRef.current = { x: 50, y: 80 };
+    setPlayer({ x: 50, y: 80 });
+    obstaclesRef.current = Array.from({ length: 4 }, safeObstacle);
+    setObstacles(obstaclesRef.current);
+    relocateTarget();
+    setPhase("play");
+  };
+
+  const movePlayer = (e) => {
+    if (phase !== "play") return;
+    const arena = arenaRef.current;
+    if (!arena) return;
+    const r = arena.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.max(4, Math.min(96, ((cx - r.left) / r.width) * 100));
+    const y = Math.max(4, Math.min(96, ((cy - r.top) / r.height) * 100));
+    playerRef.current = { x, y };
+    setPlayer({ x, y });
+  };
+
+  useEffect(() => {
+    if (phase !== "play") return;
+
+    const loop = setInterval(() => {
+      const p = playerRef.current;
+
+      // mover obstáculos + rebote
+      let dead = false;
+      const next = obstaclesRef.current.map((o) => {
+        let { x, y, vx, vy } = o;
+        x += vx;
+        y += vy;
+        if (x < 4) { x = 4; vx = -vx; }
+        if (x > 96) { x = 96; vx = -vx; }
+        if (y < 4) { y = 4; vy = -vy; }
+        if (y > 96) { y = 96; vy = -vy; }
+        if (Math.hypot(x - p.x, y - p.y) < 7.5) dead = true;
+        return { ...o, x, y, vx, vy };
+      });
+      obstaclesRef.current = next;
+      setObstacles(next);
+
+      if (dead) {
+        clearInterval(loop);
+        setPhase("dead");
+        return;
+      }
+
+      // tocar a Alberto = punto
+      const t = targetRef.current;
+      if (Math.hypot(t.x - p.x, t.y - p.y) < 9) {
+        scoreRef.current += 1;
+        setScore(scoreRef.current);
+        if (scoreRef.current >= GOAL) {
+          clearInterval(loop);
+          setPhase("win");
+          return;
+        }
+        // cada 3 puntos, un obstáculo más (sube poco a poco)
+        if (scoreRef.current % 3 === 0) {
+          obstaclesRef.current = [...obstaclesRef.current, safeObstacle()];
+        }
+        relocateTarget();
+      }
+    }, 30);
+
+    return () => clearInterval(loop);
+  }, [phase]);
+
+  return (
+    <div style={styles.fadeIn}>
+      <h1 style={styles.title}>El último reto 🎁</h1>
+
+      {phase === "idle" && (
+        <div style={styles.marStep}>
+          <p style={styles.marText}>
+            Mueve tu cara y toca la mía 😘 para sumar puntos...
+          </p>
+          <p style={styles.marHint}>
+            ¡Pero si te roza un cubo de hielo 🧊 vuelves a empezar! Llega a {GOAL}
+            .
+          </p>
+          <p style={styles.marHintSoft}>
+            Si lo consigues... hay premio sonando 🎵
+          </p>
+          <button style={styles.marBigBtn} onClick={start}>
+            Aceptar el reto 🔥
+          </button>
+        </div>
+      )}
+
+      {(phase === "play" || phase === "dead") && (
+        <div style={styles.marStep}>
+          <div style={styles.hud}>
+            <span style={styles.hudItem}>
+              😘 {score}/{GOAL}
+            </span>
+          </div>
+
+          <div
+            ref={arenaRef}
+            style={styles.dodgeArena}
+            onPointerMove={movePlayer}
+            onPointerDown={movePlayer}
+            onTouchMove={(e) => {
+              e.preventDefault();
+              movePlayer(e);
+            }}
+          >
+            {/* obstáculos */}
+            {obstacles.map((o) => (
+              <span
+                key={o.id}
+                style={{ ...styles.dodgeIce, left: `${o.x}%`, top: `${o.y}%` }}
+              >
+                🧊
+              </span>
+            ))}
+
+            {/* Alberto (objetivo) */}
+            <img
+              src="/foto-alberto.jpg"
+              alt="Alberto"
+              draggable={false}
+              style={{
+                ...styles.dodgeFace,
+                ...styles.dodgeTarget,
+                left: `${target.x}%`,
+                top: `${target.y}%`,
+              }}
+            />
+
+            {/* Mar (jugadora) */}
+            <img
+              src="/foto-mar.jpg"
+              alt="Mar"
+              draggable={false}
+              style={{
+                ...styles.dodgeFace,
+                ...styles.dodgePlayer,
+                left: `${player.x}%`,
+                top: `${player.y}%`,
+              }}
+            />
+
+            {phase === "dead" && (
+              <div style={styles.dodgeOverlay}>
+                <p style={styles.dodgeOverlayText}>¡Te pilló el hielo! 🧊💔</p>
+                <button style={styles.marBigBtn} onClick={start}>
+                  Reintentar 🔁
+                </button>
+              </div>
+            )}
+          </div>
+
+          {phase === "play" && (
+            <p style={styles.marHint}>Mueve el dedo/ratón sin parar 👆</p>
+          )}
+        </div>
+      )}
+
+      {phase === "win" && (
+        <div style={{ ...styles.marStep, ...styles.fadeIn }}>
+          <div style={styles.starEmoji}>🎉</div>
+          <p style={styles.marText}>
+            ¡Lo lograste! Esta es <b>nuestra canción</b> 🎵💍
+          </p>
+          <p style={styles.marHint}>Suena sola... súbele el volumen 🔊</p>
+
+          <audio
+            controls
+            autoPlay
+            src={SONG_URL}
+            style={styles.audioPlayer}
+          />
+
+          <a
+            href={SONG_URL}
+            download="Canción de boda.mp3"
+            style={styles.downloadBtn}
+          >
+            ⬇️ Descargar la canción
+          </a>
+
+          <button
+            style={styles.marSmallBtn}
+            onClick={() => setPhase("idle")}
+          >
+            Volver a jugar 🔁
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   const viewFromHash = () => {
     const map = {
       "#para-ti": "paraMar",
+      "#sorpresa": "sorpresa",
       "#rutina": "rutina",
       "#excusas": "excusas",
       "#planes": "planes",
@@ -691,6 +951,7 @@ export default function App() {
   useEffect(() => {
     const hashMap = {
       paraMar: "#para-ti",
+      sorpresa: "#sorpresa",
       rutina: "#rutina",
       excusas: "#excusas",
       planes: "#planes",
@@ -705,6 +966,7 @@ export default function App() {
     const onHash = () => {
       const map = {
         "#para-ti": "paraMar",
+        "#sorpresa": "sorpresa",
         "#rutina": "rutina",
         "#excusas": "excusas",
         "#planes": "planes",
@@ -843,6 +1105,12 @@ export default function App() {
             >
               💌 Para Ti
             </button>
+            <button
+              style={{ ...styles.navButton, ...(view === "sorpresa" ? styles.navButtonActive : {}) }}
+              onClick={() => setView("sorpresa")}
+            >
+              🎁 Sorpresa
+            </button>
           </div>
         </div>
 
@@ -976,6 +1244,8 @@ export default function App() {
           )}
 
           {view === "paraMar" && <ParaMar />}
+
+          {view === "sorpresa" && <Sorpresa />}
         </div>
 
         {loading && (
@@ -1672,5 +1942,84 @@ const styles = {
     fontSize: "34px",
     marginTop: "8px",
     letterSpacing: "4px",
+  },
+
+  // ---- Juego sorpresa (esquiva) ----
+  dodgeArena: {
+    position: "relative",
+    width: "100%",
+    maxWidth: "460px",
+    height: "380px",
+    margin: "0 auto",
+    background:
+      "linear-gradient(160deg, rgba(59,130,246,0.14), rgba(236,72,153,0.12))",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "24px",
+    overflow: "hidden",
+    touchAction: "none",
+    cursor: "none",
+  },
+  dodgeFace: {
+    position: "absolute",
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    transform: "translate(-50%, -50%)",
+    pointerEvents: "none",
+    userSelect: "none",
+  },
+  dodgePlayer: {
+    border: "3px solid #f472b6",
+    boxShadow: "0 0 14px rgba(244,114,182,0.7)",
+    zIndex: 3,
+  },
+  dodgeTarget: {
+    border: "3px solid #60a5fa",
+    boxShadow: "0 0 14px rgba(96,165,250,0.7)",
+    zIndex: 2,
+    animation: "pulse 1.2s infinite",
+  },
+  dodgeIce: {
+    position: "absolute",
+    fontSize: "32px",
+    transform: "translate(-50%, -50%)",
+    pointerEvents: "none",
+    userSelect: "none",
+    zIndex: 1,
+  },
+  dodgeOverlay: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "16px",
+    background: "rgba(15,23,42,0.78)",
+    backdropFilter: "blur(4px)",
+    zIndex: 4,
+  },
+  dodgeOverlayText: {
+    fontSize: "20px",
+    fontWeight: "700",
+    color: "#fce7f3",
+    margin: 0,
+  },
+  audioPlayer: {
+    width: "100%",
+    maxWidth: "340px",
+    marginTop: "4px",
+  },
+  downloadBtn: {
+    display: "inline-block",
+    textDecoration: "none",
+    background: "rgba(255,255,255,0.06)",
+    color: "#e2e8f0",
+    border: "1px solid rgba(255,255,255,0.15)",
+    padding: "14px 24px",
+    borderRadius: "16px",
+    fontSize: "16px",
+    fontWeight: "700",
   },
 };
