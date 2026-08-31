@@ -1,3 +1,5 @@
 * { -webkit-tap-highlight-color: transparent; }
 body { margin: 0; background: #0f172a; }
 input::placeholder { color: #64748b; }
+@keyframes subir { from { opacity: 0; transform: translate(-50%, 12px); } }
+button:active { transform: scale(0.97); }

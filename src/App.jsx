@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
+import {
+  cargar, guardar, fechaCorta, delta,
+  cargarHechos, guardarHechos, alternar,
+  apuntar as apuntarEn, borrar as borrarEn,
+} from "./historico.js";
+import { fraseDelDia, celebracion } from "./frases.js";
 
 const rutina = [
   {
     dia: "Día 1",
-    grupo: "Glúteos 🍑",
+    grupo: "Glúteos 🍑 · para tener más culo, si es que se puede",
     ejercicios: [
       { nombre: "Hip Thrust", series: "4", reps: "10-12", imagen: "https://gymvisual.com/img/p/5/7/6/1/5761.gif" },
       { nombre: "Patada de glúteo en polea", series: "3", reps: "12-15", imagen: "https://www.thingys.com.ar/gymapps/tutorial/gluteos_polea2.gif" },
@@ -13,7 +19,7 @@ const rutina = [
   },
   {
     dia: "Día 2",
-    grupo: "Torso 💪",
+    grupo: "Torso 💪 · para ponerte mamadísima",
     ejercicios: [
       { nombre: "Jalón al pecho", series: "4", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif" },
       { nombre: "Remo en polea", series: "3", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif" },
@@ -33,45 +39,42 @@ const rutina = [
   },
 ];
 
-const KEY = "gymbro-historico";
-
-// ponytail: localStorage basta para una app de una persona; backend solo si quiere sincronizar entre móviles.
-const cargar = () => {
-  try {
-    return JSON.parse(localStorage.getItem(KEY)) || {};
-  } catch {
-    return {};
-  }
-};
-
-const hoy = () => new Date().toISOString().slice(0, 10);
-const fechaCorta = (iso) => iso.split("-").reverse().slice(0, 2).join("/");
-
 export default function App() {
   const [diaActivo, setDiaActivo] = useState(0);
   const [historico, setHistorico] = useState(cargar);
+  const [hechos, setHechos] = useState(cargarHechos);
   const [abierto, setAbierto] = useState(null);
+  const [aviso, setAviso] = useState(null);
 
+  useEffect(() => guardar(historico), [historico]);
+  useEffect(() => guardarHechos(hechos), [hechos]);
+
+  // El aviso se va solo a los 3s.
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify(historico));
-  }, [historico]);
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 3000);
+    return () => clearTimeout(t);
+  }, [aviso]);
 
   const apuntar = (nombre, peso, reps) => {
-    if (!peso) return;
-    setHistorico((h) => ({
-      ...h,
-      [nombre]: [{ fecha: hoy(), peso, reps }, ...(h[nombre] || [])].slice(0, 50),
-    }));
+    const d = delta(historico[nombre] || [], peso);
+    setHistorico((h) => apuntarEn(h, nombre, peso, reps));
+    setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
   };
 
-  const borrar = (nombre, i) =>
-    setHistorico((h) => ({ ...h, [nombre]: h[nombre].filter((_, j) => j !== i) }));
+  const borrar = (nombre, i) => setHistorico((h) => borrarEn(h, nombre, i));
+
+  const ejercicios = rutina[diaActivo].ejercicios;
+  const completados = ejercicios.filter((e) => hechos.includes(e.nombre)).length;
+  const porcentaje = Math.round((completados / ejercicios.length) * 100);
+  const terminado = completados === ejercicios.length;
 
   return (
     <div style={s.page}>
       <header style={s.header}>
         <img src="/gymbro.jpeg" alt="Tu gymbro" style={s.foto} />
-        <h1 style={s.titulo}>De parte de tu gymbro</h1>
+        <h1 style={s.titulo}>De parte de tu gymbro {"<3"}</h1>
+        <p style={s.frase}>{fraseDelDia()}</p>
       </header>
 
       <nav style={s.tabs}>
@@ -87,12 +90,24 @@ export default function App() {
         ))}
       </nav>
 
+      <div style={s.progresoCaja}>
+        <div style={s.progresoTexto}>
+          <span>{terminado ? "¡Día completado! 🎉" : `${completados} de ${ejercicios.length} hechos`}</span>
+          <span style={s.porcentaje}>{porcentaje}%</span>
+        </div>
+        <div style={s.barra}>
+          <div style={{ ...s.barraRelleno, width: `${porcentaje}%` }} />
+        </div>
+      </div>
+
       <main style={s.lista}>
-        {rutina[diaActivo].ejercicios.map((ej) => (
+        {ejercicios.map((ej) => (
           <Ejercicio
             key={ej.nombre}
             ej={ej}
             registros={historico[ej.nombre] || []}
+            hecho={hechos.includes(ej.nombre)}
+            marcar={() => setHechos((n) => alternar(n, ej.nombre))}
             abierto={abierto === ej.nombre}
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
             apuntar={apuntar}
@@ -100,33 +115,48 @@ export default function App() {
           />
         ))}
       </main>
+
+      {aviso && <div style={s.aviso}>{aviso}</div>}
     </div>
   );
 }
 
-function Ejercicio({ ej, registros, abierto, toggle, apuntar, borrar }) {
+function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, borrar }) {
   const [peso, setPeso] = useState("");
   const [reps, setReps] = useState("");
   const ultimo = registros[0];
 
-  const guardar = (e) => {
+  const enviar = (e) => {
     e.preventDefault();
+    if (!peso) return;
     apuntar(ej.nombre, peso, reps);
     setPeso("");
     setReps("");
   };
 
   return (
-    <article style={s.card}>
-      <h2 style={s.nombre}>{ej.nombre}</h2>
+    <article style={{ ...s.card, ...(hecho ? s.cardHecha : null) }}>
+      <div style={s.cabecera}>
+        <h2 style={s.nombre}>{ej.nombre}</h2>
+        <button
+          onClick={marcar}
+          style={{ ...s.check, ...(hecho ? s.checkOn : null) }}
+          aria-pressed={hecho}
+          aria-label={hecho ? "Marcar como pendiente" : "Marcar como hecho"}
+        >
+          ✓
+        </button>
+      </div>
+
       <img src={ej.imagen} alt={ej.nombre} loading="lazy" style={s.gif} />
+
       <div style={s.badges}>
         <span style={s.badge}>{ej.series} series</span>
         <span style={s.badge}>{ej.reps} reps</span>
         {ultimo && <span style={s.badgeUltimo}>último: {ultimo.peso} kg</span>}
       </div>
 
-      <form onSubmit={guardar} style={s.form}>
+      <form onSubmit={enviar} style={s.form}>
         <input
           type="number"
           inputMode="decimal"
@@ -297,4 +327,70 @@ const s = {
     cursor: "pointer",
   },
   vacio: { color: "#64748b", fontSize: "14px", padding: "10px 0" },
+  frase: {
+    margin: "10px 0 0",
+    fontSize: "14px",
+    color: "#93c5fd",
+    fontStyle: "italic",
+    minHeight: "20px",
+  },
+  progresoCaja: { marginBottom: "20px" },
+  progresoTexto: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: "13px",
+    color: "#94a3b8",
+    marginBottom: "6px",
+  },
+  porcentaje: { color: "#4ade80", fontWeight: 700 },
+  barra: {
+    height: "8px",
+    borderRadius: "99px",
+    background: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
+  },
+  barraRelleno: {
+    height: "100%",
+    borderRadius: "99px",
+    background: "linear-gradient(90deg,#3b82f6,#4ade80)",
+    transition: "width .4s ease",
+  },
+  cabecera: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" },
+  cardHecha: { borderColor: "rgba(74,222,128,0.35)", background: "rgba(74,222,128,0.05)" },
+  check: {
+    marginLeft: "auto",
+    flexShrink: 0,
+    width: "34px",
+    height: "34px",
+    borderRadius: "50%",
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "transparent",
+    color: "#475569",
+    fontSize: "16px",
+    cursor: "pointer",
+    transition: "all .2s ease",
+  },
+  checkOn: {
+    background: "#22c55e",
+    borderColor: "#22c55e",
+    color: "#fff",
+  },
+  aviso: {
+    position: "fixed",
+    left: "50%",
+    bottom: "24px",
+    transform: "translateX(-50%)",
+    width: "max-content",
+    maxWidth: "90vw",
+    background: "#1e293b",
+    border: "1px solid rgba(74,222,128,0.4)",
+    color: "#f8fafc",
+    padding: "12px 18px",
+    borderRadius: "99px",
+    fontSize: "14px",
+    fontWeight: 600,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
+    animation: "subir .3s ease",
+    zIndex: 10,
+  },
 };
