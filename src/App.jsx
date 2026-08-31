@@ -70,6 +70,8 @@ export default function App() {
     return () => clearTimeout(t);
   }, [aviso]);
 
+  const vibrar = (ms) => navigator.vibrate?.(ms);
+
   const apuntar = async (nombre, peso, reps) => {
     const d = delta(historico[nombre] || [], peso);
     let extra = {};
@@ -80,7 +82,10 @@ export default function App() {
       setSinConexion(true);
     }
     setHistorico((h) => apuntarEn(h, nombre, peso, reps, extra));
+    // Apuntar peso cuenta como ejercicio hecho: la barra sube sola.
+    setHechos((n) => (n.includes(nombre) ? n : [...n, nombre]));
     setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
+    vibrar(25);
   };
 
   const borrar = async (nombre, i) => {
@@ -94,8 +99,6 @@ export default function App() {
   const porcentaje = Math.round((completados / ejercicios.length) * 100);
   const terminado = completados === ejercicios.length;
 
-  const [remate, setRemate] = useState("");
-  useEffect(() => setRemate(terminado ? finDeDia() : ""), [terminado, diaActivo]);
   const fraseFinal = useMemo(() => finDeDia(), [terminado, diaActivo]);
 
   return (
@@ -110,6 +113,7 @@ export default function App() {
         {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
       </header>
 
+      <div className="sticky" style={s.sticky}>
       <nav style={s.tabs}>
         {rutina.map((d, i) => (
           <button
@@ -132,6 +136,7 @@ export default function App() {
           <div style={{ ...s.barraRelleno, width: `${porcentaje}%` }} />
         </div>
       </div>
+      </div>
 
       <main style={s.lista}>
         {ejercicios.map((ej) => (
@@ -140,7 +145,7 @@ export default function App() {
             ej={ej}
             registros={historico[ej.nombre] || []}
             hecho={hechos.includes(ej.nombre)}
-            marcar={() => setHechos((n) => alternar(n, ej.nombre))}
+            marcar={() => (vibrar(15), setHechos((n) => alternar(n, ej.nombre)))}
             abierto={abierto === ej.nombre}
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
             apuntar={apuntar}
@@ -162,6 +167,8 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
   const enviar = (e) => {
     e.preventDefault();
     if (!peso) return;
+    // Cierra el teclado del móvil: si no, tapa el aviso de confirmación.
+    e.currentTarget.querySelector("input")?.blur();
     apuntar(ej.nombre, peso, reps);
     setPeso("");
     setReps("");
@@ -196,6 +203,7 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
           inputMode="decimal"
           step="0.5"
           placeholder="kg"
+          enterKeyHint="done"
           value={peso}
           onChange={(e) => setPeso(e.target.value)}
           style={s.input}
@@ -204,6 +212,7 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
           type="number"
           inputMode="numeric"
           placeholder="reps"
+          enterKeyHint="done"
           value={reps}
           onChange={(e) => setReps(e.target.value)}
           style={s.input}
@@ -241,7 +250,7 @@ const s = {
     background: "transparent",
     color: "#f8fafc",
     fontFamily: "'Outfit', system-ui, sans-serif",
-    padding: "16px 14px 40px",
+    padding: "16px 14px calc(40px + env(safe-area-inset-bottom))",
     maxWidth: "560px",
     margin: "0 auto",
     boxSizing: "border-box",
@@ -291,6 +300,15 @@ const s = {
   },
   tabDia: { fontSize: "13px", fontWeight: 700 },
   tabGrupo: { fontSize: "12px" },
+  sticky: {
+    position: "sticky",
+    top: 0,
+    zIndex: 5,
+    paddingTop: "10px",
+    marginBottom: "18px",
+    background: "rgba(11,16,32,0.82)",
+    backdropFilter: "blur(12px)",
+  },
   lista: { display: "grid", gap: "18px" },
   card: {
     background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))",
@@ -303,7 +321,8 @@ const s = {
   nombre: { fontSize: "17px", margin: "0 0 12px", fontWeight: 700 },
   gif: {
     width: "100%",
-    height: "180px",
+    aspectRatio: "4 / 3",
+    maxHeight: "220px",
     objectFit: "contain",
     background: "#fff",
     borderRadius: "12px",
@@ -372,10 +391,13 @@ const s = {
   fecha: { color: "#94a3b8", minWidth: "48px" },
   borrar: {
     marginLeft: "auto",
+    flexShrink: 0,
+    width: "40px",
+    height: "40px",
     background: "transparent",
     border: "none",
     color: "#64748b",
-    fontSize: "16px",
+    fontSize: "18px",
     cursor: "pointer",
   },
   vacio: { color: "#64748b", fontSize: "14px", padding: "10px 0" },
@@ -423,8 +445,8 @@ const s = {
   check: {
     marginLeft: "auto",
     flexShrink: 0,
-    width: "34px",
-    height: "34px",
+    width: "44px",
+    height: "44px",
     borderRadius: "50%",
     border: "1px solid rgba(255,255,255,0.15)",
     background: "transparent",
@@ -447,7 +469,7 @@ const s = {
   aviso: {
     position: "fixed",
     left: "50%",
-    bottom: "24px",
+    bottom: "calc(24px + env(safe-area-inset-bottom))",
     transform: "translateX(-50%)",
     width: "max-content",
     maxWidth: "90vw",

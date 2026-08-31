@@ -40,3 +40,12 @@ input:focus { outline: none; border-color: rgba(96,165,250,0.7) !important; box-
 @media (prefers-reduced-motion: reduce) {
   *, .card, .foto, .titulo { animation: none !important; }
 }
+
+/* Móvil: el pulgar necesita sitio y el texto no debe apretarse */
+html { -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior-y: none; }
+.sticky { margin-inline: -14px; padding-inline: 14px; }
+@media (max-width: 360px) {
+  .titulo { font-size: 21px !important; }
+  .foto { width: 92px !important; height: 92px !important; }
+}
