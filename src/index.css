@@ -49,3 +49,5 @@ body { overscroll-behavior-y: none; }
   .titulo { font-size: 21px !important; }
   .foto { width: 92px !important; height: 92px !important; }
 }
+/* Nada puede desbordar a lo ancho en móvil */
+img, svg { max-width: 100%; }

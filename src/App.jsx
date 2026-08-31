@@ -220,6 +220,7 @@ export default function App() {
 function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
   const [peso, setPeso] = useState("");
   const [reps, setReps] = useState("");
+  const [ampliada, setAmpliada] = useState(false);
   const ultimo = registros[0];
 
   const enviar = (e) => {
@@ -235,6 +236,18 @@ function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando,
   return (
     <article className="card" style={{ ...s.card, ...(hecho ? s.cardHecha : null) }}>
       <div style={s.cabecera}>
+        {ej.imagen ? (
+          <button
+            onClick={() => setAmpliada((v) => !v)}
+            style={{ ...s.miniCaja, ...(ampliada ? s.miniCajaAbierta : null) }}
+            aria-expanded={ampliada}
+            aria-label={ampliada ? "Reducir el gif" : "Ver el gif más grande"}
+          >
+            <img src={ej.imagen} alt={ej.nombre} loading="lazy" style={s.mini} />
+          </button>
+        ) : (
+          <div style={s.sinGif}>💪</div>
+        )}
         <h2 style={s.nombre}>{ej.nombre}</h2>
         <button
           onClick={marcar}
@@ -251,12 +264,6 @@ function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando,
           </button>
         )}
       </div>
-
-      {ej.imagen ? (
-        <img src={ej.imagen} alt={ej.nombre} loading="lazy" style={s.gif} />
-      ) : (
-        <div style={s.sinGif}>💪</div>
-      )}
 
       <div style={s.badges}>
         <span style={s.badge}>{ej.series} series</span>
@@ -500,22 +507,31 @@ const s = {
     backdropFilter: "blur(8px)",
     boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
   },
-  nombre: { fontSize: "17px", margin: "0 0 12px", fontWeight: 700 },
-  gif: {
-    width: "100%",
-    aspectRatio: "4 / 3",
-    maxHeight: "220px",
-    objectFit: "contain",
+  nombre: { flex: 1, minWidth: "110px", fontSize: "16px", margin: 0, fontWeight: 700 },
+  miniCaja: {
+    width: "84px",
+    height: "84px",
+    flexShrink: 0,
+    padding: "4px",
+    borderRadius: "14px",
+    border: "none",
     background: "#fff",
-    borderRadius: "12px",
-    padding: "8px",
-    boxSizing: "border-box",
+    cursor: "zoom-in",
+    transition: "width .25s ease, height .25s ease",
   },
+  miniCajaAbierta: {
+    width: "100%",
+    height: "auto",
+    aspectRatio: "4 / 3",
+    cursor: "zoom-out",
+  },
+  mini: { width: "100%", height: "100%", objectFit: "contain", display: "block" },
   sinGif: {
     display: "grid",
     placeItems: "center",
-    aspectRatio: "4 / 3",
-    maxHeight: "140px",
+    width: "84px",
+    height: "84px",
+    flexShrink: 0,
     borderRadius: "12px",
     background: "rgba(255,255,255,0.04)",
     fontSize: "40px",
@@ -537,9 +553,9 @@ const s = {
     fontSize: "13px",
     fontWeight: 600,
   },
-  form: { display: "flex", gap: "8px" },
+  form: { display: "flex", flexWrap: "wrap", gap: "8px" },
   input: {
-    minWidth: 0,
+    minWidth: "72px",
     flex: 1,
     padding: "12px",
     fontSize: "16px",
@@ -627,7 +643,13 @@ const s = {
     boxShadow: "0 0 14px rgba(96,165,250,0.5)",
     transition: "width .5s cubic-bezier(.4,0,.2,1)",
   },
-  cabecera: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" },
+  cabecera: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "10px",
+    marginBottom: "12px",
+  },
   cardHecha: {
     borderColor: "rgba(74,222,128,0.45)",
     background: "linear-gradient(180deg, rgba(74,222,128,0.12), rgba(74,222,128,0.03))",
