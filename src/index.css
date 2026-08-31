@@ -1,5 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
+
 * { -webkit-tap-highlight-color: transparent; }
-body { margin: 0; background: #0f172a; }
+body {
+  margin: 0;
+  background: #0b1020;
+  /* Luces de fondo: pura CSS, sin canvas ni librerías */
+  background-image:
+    radial-gradient(60vw 40vh at 15% -5%, rgba(59,130,246,0.28), transparent 70%),
+    radial-gradient(55vw 35vh at 95% 10%, rgba(168,85,247,0.22), transparent 70%),
+    radial-gradient(70vw 45vh at 50% 105%, rgba(34,197,94,0.16), transparent 70%);
+  background-attachment: fixed;
+}
 input::placeholder { color: #64748b; }
-@keyframes subir { from { opacity: 0; transform: translate(-50%, 12px); } }
-button:active { transform: scale(0.97); }
+button, input { font-family: inherit; }
+button { transition: transform .15s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+button:active { transform: scale(0.96); }
+input:focus { outline: none; border-color: rgba(96,165,250,0.7) !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.18); }
+
+@keyframes subir { from { opacity: 0; transform: translate(-50%, 12px) scale(.95); } }
+@keyframes entrar { from { opacity: 0; transform: translateY(14px); } }
+@keyframes latir { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes brillo { to { background-position: 200% 0; } }
+@keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+.card { animation: entrar .35s ease both; }
+.card:nth-child(2) { animation-delay: .05s; }
+.card:nth-child(3) { animation-delay: .1s; }
+.card:nth-child(4) { animation-delay: .15s; }
+.check-on { animation: pop .3s ease; }
+.foto { animation: latir 4s ease-in-out infinite; }
+.titulo {
+  background: linear-gradient(90deg,#60a5fa,#a78bfa,#4ade80,#60a5fa);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brillo 6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, .card, .foto, .titulo { animation: none !important; }
+}

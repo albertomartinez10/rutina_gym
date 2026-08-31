@@ -14,11 +14,12 @@ export const guardar = (historico) => localStorage.setItem(KEY, JSON.stringify(h
 export const hoy = () => new Date().toISOString().slice(0, 10);
 export const fechaCorta = (iso) => iso.split("-").reverse().slice(0, 2).join("/");
 
-export const apuntar = (historico, nombre, peso, reps) => {
+// extra lleva lo que devuelve el servidor (id, fecha real) cuando el guardado remoto va bien.
+export const apuntar = (historico, nombre, peso, reps, extra = {}) => {
   if (!peso) return historico;
   return {
     ...historico,
-    [nombre]: [{ fecha: hoy(), peso, reps }, ...(historico[nombre] || [])].slice(0, 50),
+    [nombre]: [{ fecha: hoy(), peso, reps, ...extra }, ...(historico[nombre] || [])].slice(0, 50),
   };
 };
 

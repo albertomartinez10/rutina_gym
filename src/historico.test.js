@@ -102,3 +102,9 @@ test("la frase del dia es estable dentro del mismo dia y cambia al siguiente", (
   assert.equal(a, fraseDelDia(new Date("2026-08-31T21:00:00Z")));
   assert.notEqual(a, fraseDelDia(new Date("2026-09-01T08:00:00Z")));
 });
+
+test("apuntar guarda el id que devuelve el servidor", () => {
+  const h = apuntar({}, "Prensa", "80", "10", { id: 42, fecha: "2026-08-30" });
+  assert.equal(h["Prensa"][0].id, 42);
+  assert.equal(h["Prensa"][0].fecha, "2026-08-30");
+});

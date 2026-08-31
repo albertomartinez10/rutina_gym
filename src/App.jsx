@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
-import { fraseDelDia, celebracion } from "./frases.js";
+import { fraseDelDia, celebracion, finDeDia } from "./frases.js";
+import { traerHistorico, insertarRegistro, borrarRegistro } from "./supabase.js";
 
 const rutina = [
   {
@@ -29,7 +30,7 @@ const rutina = [
   },
   {
     dia: "Día 3",
-    grupo: "Cuádriceps 🦵",
+    grupo: "Cuádriceps 🦵 · para partirlo en los pogos",
     ejercicios: [
       { nombre: "Sentadilla", series: "4", reps: "8-10", imagen: "https://www.thingys.com.ar/gymapps/tutorial/hack_new.gif" },
       { nombre: "Prensa", series: "4", reps: "10-12", imagen: "https://fitcron.com/wp-content/uploads/2021/04/07401301-Sled-45%C2%B0-Leg-Wide-Press_Thighs_720.gif" },
@@ -46,6 +47,19 @@ export default function App() {
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
 
+  const [sinConexion, setSinConexion] = useState(false);
+
+  // Pinta ya con el cache local y luego sincroniza con Supabase.
+  useEffect(() => {
+    let vivo = true;
+    traerHistorico()
+      .then((datos) => vivo && (setHistorico(datos), setSinConexion(false)))
+      .catch(() => vivo && setSinConexion(true));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   useEffect(() => guardar(historico), [historico]);
   useEffect(() => guardarHechos(hechos), [hechos]);
 
@@ -56,25 +70,44 @@ export default function App() {
     return () => clearTimeout(t);
   }, [aviso]);
 
-  const apuntar = (nombre, peso, reps) => {
+  const apuntar = async (nombre, peso, reps) => {
     const d = delta(historico[nombre] || [], peso);
-    setHistorico((h) => apuntarEn(h, nombre, peso, reps));
+    let extra = {};
+    try {
+      extra = await insertarRegistro(nombre, peso, reps);
+      setSinConexion(false);
+    } catch {
+      setSinConexion(true);
+    }
+    setHistorico((h) => apuntarEn(h, nombre, peso, reps, extra));
     setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
   };
 
-  const borrar = (nombre, i) => setHistorico((h) => borrarEn(h, nombre, i));
+  const borrar = async (nombre, i) => {
+    const reg = (historico[nombre] || [])[i];
+    setHistorico((h) => borrarEn(h, nombre, i));
+    if (reg?.id) await borrarRegistro(reg.id).catch(() => setSinConexion(true));
+  };
 
   const ejercicios = rutina[diaActivo].ejercicios;
   const completados = ejercicios.filter((e) => hechos.includes(e.nombre)).length;
   const porcentaje = Math.round((completados / ejercicios.length) * 100);
   const terminado = completados === ejercicios.length;
 
+  const [remate, setRemate] = useState("");
+  useEffect(() => setRemate(terminado ? finDeDia() : ""), [terminado, diaActivo]);
+  const fraseFinal = useMemo(() => finDeDia(), [terminado, diaActivo]);
+
   return (
     <div style={s.page}>
       <header style={s.header}>
-        <img src="/gymbro.jpeg" alt="Tu gymbro" style={s.foto} />
-        <h1 style={s.titulo}>De parte de tu gymbro {"<3"}</h1>
+        <div style={s.halo}>
+          <img src="/gymbro.jpeg" alt="Tu gymbro" className="foto" style={s.foto} />
+        </div>
+        <h1 className="titulo" style={s.titulo}>De parte de tu gymbro {"<3"}</h1>
         <p style={s.frase}>{fraseDelDia()}</p>
+        <p style={s.lema}>Cada sesión te deja más fuerte de lo que ya estás 🦾</p>
+        {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
       </header>
 
       <nav style={s.tabs}>
@@ -92,7 +125,7 @@ export default function App() {
 
       <div style={s.progresoCaja}>
         <div style={s.progresoTexto}>
-          <span>{terminado ? "¡Día completado! 🎉" : `${completados} de ${ejercicios.length} hechos`}</span>
+          <span>{terminado ? fraseFinal : `${completados} de ${ejercicios.length} hechos · sigue sumando fuerza`}</span>
           <span style={s.porcentaje}>{porcentaje}%</span>
         </div>
         <div style={s.barra}>
@@ -135,11 +168,12 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
   };
 
   return (
-    <article style={{ ...s.card, ...(hecho ? s.cardHecha : null) }}>
+    <article className="card" style={{ ...s.card, ...(hecho ? s.cardHecha : null) }}>
       <div style={s.cabecera}>
         <h2 style={s.nombre}>{ej.nombre}</h2>
         <button
           onClick={marcar}
+          className={hecho ? "check-on" : undefined}
           style={{ ...s.check, ...(hecho ? s.checkOn : null) }}
           aria-pressed={hecho}
           aria-label={hecho ? "Marcar como pendiente" : "Marcar como hecho"}
@@ -204,7 +238,7 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
 const s = {
   page: {
     minHeight: "100vh",
-    background: "#0f172a",
+    background: "transparent",
     color: "#f8fafc",
     fontFamily: "'Outfit', system-ui, sans-serif",
     padding: "16px 14px 40px",
@@ -212,15 +246,29 @@ const s = {
     margin: "0 auto",
     boxSizing: "border-box",
   },
-  header: { textAlign: "center", marginBottom: "20px" },
+  header: { textAlign: "center", marginBottom: "24px" },
+  halo: {
+    display: "inline-block",
+    padding: "5px",
+    borderRadius: "50%",
+    background: "conic-gradient(from 180deg,#60a5fa,#a78bfa,#4ade80,#60a5fa)",
+    boxShadow: "0 0 40px rgba(96,165,250,0.35)",
+  },
+  lema: {
+    margin: "8px 0 0",
+    fontSize: "13px",
+    color: "#cbd5e1",
+    fontWeight: 600,
+  },
   foto: {
     width: "120px",
     height: "120px",
     objectFit: "cover",
     borderRadius: "50%",
-    border: "3px solid rgba(96,165,250,0.5)",
+    display: "block",
+    border: "3px solid #0b1020",
   },
-  titulo: { fontSize: "24px", margin: "14px 0 0", fontWeight: 800 },
+  titulo: { fontSize: "26px", margin: "14px 0 0", fontWeight: 900, letterSpacing: "-0.5px" },
   tabs: { display: "flex", gap: "8px", marginBottom: "20px" },
   tab: {
     flex: 1,
@@ -236,18 +284,21 @@ const s = {
     cursor: "pointer",
   },
   tabActiva: {
-    background: "rgba(59,130,246,0.2)",
-    borderColor: "rgba(59,130,246,0.5)",
+    background: "linear-gradient(160deg, rgba(59,130,246,0.35), rgba(168,85,247,0.25))",
+    borderColor: "rgba(96,165,250,0.6)",
     color: "#fff",
+    boxShadow: "0 6px 20px rgba(59,130,246,0.25)",
   },
   tabDia: { fontSize: "13px", fontWeight: 700 },
   tabGrupo: { fontSize: "12px" },
   lista: { display: "grid", gap: "18px" },
   card: {
-    background: "rgba(255,255,255,0.03)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "20px",
+    background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "22px",
     padding: "16px",
+    backdropFilter: "blur(8px)",
+    boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
   },
   nombre: { fontSize: "17px", margin: "0 0 12px", fontWeight: 700 },
   gif: {
@@ -288,10 +339,11 @@ const s = {
     color: "#fff",
   },
   guardar: {
-    padding: "12px 16px",
+    padding: "12px 18px",
     borderRadius: "12px",
     border: "none",
-    background: "#3b82f6",
+    boxShadow: "0 6px 18px rgba(59,130,246,0.35)",
+    background: "linear-gradient(135deg,#3b82f6,#a855f7)",
     color: "#fff",
     fontWeight: 700,
     fontSize: "15px",
@@ -334,7 +386,13 @@ const s = {
     fontStyle: "italic",
     minHeight: "20px",
   },
-  progresoCaja: { marginBottom: "20px" },
+  progresoCaja: {
+    marginBottom: "22px",
+    padding: "12px 14px",
+    borderRadius: "16px",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
   progresoTexto: {
     display: "flex",
     justifyContent: "space-between",
@@ -344,7 +402,7 @@ const s = {
   },
   porcentaje: { color: "#4ade80", fontWeight: 700 },
   barra: {
-    height: "8px",
+    height: "10px",
     borderRadius: "99px",
     background: "rgba(255,255,255,0.06)",
     overflow: "hidden",
@@ -352,11 +410,16 @@ const s = {
   barraRelleno: {
     height: "100%",
     borderRadius: "99px",
-    background: "linear-gradient(90deg,#3b82f6,#4ade80)",
-    transition: "width .4s ease",
+    background: "linear-gradient(90deg,#3b82f6,#a855f7,#4ade80)",
+    boxShadow: "0 0 14px rgba(96,165,250,0.5)",
+    transition: "width .5s cubic-bezier(.4,0,.2,1)",
   },
   cabecera: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" },
-  cardHecha: { borderColor: "rgba(74,222,128,0.35)", background: "rgba(74,222,128,0.05)" },
+  cardHecha: {
+    borderColor: "rgba(74,222,128,0.45)",
+    background: "linear-gradient(180deg, rgba(74,222,128,0.12), rgba(74,222,128,0.03))",
+    boxShadow: "0 10px 30px rgba(34,197,94,0.15)",
+  },
   check: {
     marginLeft: "auto",
     flexShrink: 0,
@@ -371,9 +434,15 @@ const s = {
     transition: "all .2s ease",
   },
   checkOn: {
-    background: "#22c55e",
+    background: "linear-gradient(135deg,#22c55e,#4ade80)",
     borderColor: "#22c55e",
     color: "#fff",
+    boxShadow: "0 0 18px rgba(34,197,94,0.5)",
+  },
+  offline: {
+    margin: "8px 0 0",
+    fontSize: "12px",
+    color: "#fbbf24",
   },
   aviso: {
     position: "fixed",
@@ -382,8 +451,8 @@ const s = {
     transform: "translateX(-50%)",
     width: "max-content",
     maxWidth: "90vw",
-    background: "#1e293b",
-    border: "1px solid rgba(74,222,128,0.4)",
+    background: "linear-gradient(135deg,#1e293b,#312e81)",
+    border: "1px solid rgba(74,222,128,0.5)",
     color: "#f8fafc",
     padding: "12px 18px",
     borderRadius: "99px",
