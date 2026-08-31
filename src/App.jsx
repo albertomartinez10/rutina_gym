@@ -440,13 +440,8 @@ const s = {
   tabDia: { fontSize: "13px", fontWeight: 700 },
   tabGrupo: { fontSize: "12px" },
   sticky: {
-    position: "sticky",
-    top: 0,
-    zIndex: 5,
     paddingTop: "10px",
     marginBottom: "18px",
-    background: "rgba(11,16,32,0.82)",
-    backdropFilter: "blur(12px)",
   },
   racha: {
     margin: "8px 0 0",
