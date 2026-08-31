@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   cargar, guardar, apuntar, borrar, hoy, fechaCorta, KEY,
   delta, alternar, cargarHechos, guardarHechos, HECHOS,
+  marcarSerie, racha, progresion, rutinaFinal,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -107,4 +108,51 @@ test("apuntar guarda el id que devuelve el servidor", () => {
   const h = apuntar({}, "Prensa", "80", "10", { id: 42, fecha: "2026-08-30" });
   assert.equal(h["Prensa"][0].id, 42);
   assert.equal(h["Prensa"][0].fecha, "2026-08-30");
+});
+
+test("marcarSerie marca hasta la que tocas y desmarca si repites", () => {
+  let s = marcarSerie({}, "Prensa", 2);
+  assert.equal(s["Prensa"], 3);
+  s = marcarSerie(s, "Prensa", 2);
+  assert.equal(s["Prensa"], 2);
+});
+
+test("racha cuenta dias seguidos hacia atras", () => {
+  const h = { Prensa: [{ fecha: "2026-08-31" }, { fecha: "2026-08-30" }, { fecha: "2026-08-29" }] };
+  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 3);
+});
+
+test("racha sigue viva si hoy aun no has entrenado", () => {
+  const h = { Prensa: [{ fecha: "2026-08-30" }, { fecha: "2026-08-29" }] };
+  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 2);
+});
+
+test("racha se rompe con un hueco", () => {
+  const h = { Prensa: [{ fecha: "2026-08-31" }, { fecha: "2026-08-28" }] };
+  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 1);
+});
+
+test("racha es 0 sin registros", () => {
+  assert.equal(racha({}), 0);
+});
+
+test("progresion devuelve los pesos del mas antiguo al mas nuevo", () => {
+  const regs = [{ peso: "70" }, { peso: "65" }, { peso: "60" }];
+  assert.deepEqual(progresion(regs), [60, 65, 70]);
+});
+
+test("rutinaFinal esconde los ocultos y suma los anadidos", () => {
+  const base = [{ ejercicios: [{ nombre: "Hip Thrust" }, { nombre: "Sentadilla" }] }];
+  const pers = [
+    { id: 1, dia: 0, nombre: "Hip Thrust", oculto: true },
+    { id: 2, dia: 0, nombre: "Gemelos", series: "4", reps: "15", oculto: false },
+    { id: 3, dia: 1, nombre: "De otro dia", oculto: false },
+  ];
+  const r = rutinaFinal(base, pers, 0);
+  assert.deepEqual(r.map((e) => e.nombre), ["Sentadilla", "Gemelos"]);
+});
+
+test("rutinaFinal sin personalizar deja la rutina base", () => {
+  const base = [{ ejercicios: [{ nombre: "Prensa" }] }];
+  assert.deepEqual(rutinaFinal(base, [], 0).map((e) => e.nombre), ["Prensa"]);
 });

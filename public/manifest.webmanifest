@@ -1,0 +1,12 @@
+{
+  "name": "De parte de tu gymbro",
+  "short_name": "Gymbro",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "/gymbro.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

@@ -15,7 +15,7 @@ const frases = [
   "Cada repetición es un voto por la persona que quieres ser",
   "Ya estás fuerte. Hoy vas a estarlo un poco más 🦾",
   "Vienes fuerte de casa: esto solo lo confirma",
-  "Cada vez que entras aquí sales más fuerte de lo que entraste",
+  "Cada vez que entras aquí sales más fuerte",
   "Ya eres fuerte. Ahora toca dar miedo 😈",
   "La versión de ti de la semana pasada no te levantaría hoy",
   "Fuerte hoy, más fuerte mañana, imparable el mes que viene",

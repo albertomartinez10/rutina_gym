@@ -52,3 +52,59 @@ export const delta = (registros, peso) => {
   if (!previo) return null;
   return Math.round((Number(peso) - Number(previo.peso)) * 10) / 10;
 };
+
+export const SERIES = "gymbro-series";
+
+// Series marcadas HOY, por ejercicio: { "Sentadilla": 3 }. Se vacía al cambiar de día.
+export const cargarSeries = () => {
+  try {
+    const d = JSON.parse(localStorage.getItem(SERIES));
+    return d && d.fecha === hoy() ? d.series : {};
+  } catch {
+    return {};
+  }
+};
+
+export const guardarSeries = (series) =>
+  localStorage.setItem(SERIES, JSON.stringify({ fecha: hoy(), series }));
+
+// Toca la serie i: si ya estaba marcada la desmarca (y las siguientes), si no marca hasta ella.
+export const marcarSerie = (series, nombre, i) => ({
+  ...series,
+  [nombre]: (series[nombre] || 0) === i + 1 ? i : i + 1,
+});
+
+// Días seguidos entrenando contando hacia atrás desde hoy (o ayer, si hoy aún no ha tocado).
+export const racha = (historico, desde = new Date()) => {
+  const dias = new Set(Object.values(historico).flat().map((r) => r.fecha));
+  if (!dias.size) return 0;
+
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const cursor = new Date(desde);
+  if (!dias.has(iso(cursor))) cursor.setDate(cursor.getDate() - 1);
+
+  let total = 0;
+  while (dias.has(iso(cursor))) {
+    total++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return total;
+};
+
+// Pesos en orden cronológico (antiguo → nuevo) para dibujar la progresión.
+export const progresion = (registros, max = 10) =>
+  registros
+    .slice(0, max)
+    .map((r) => Number(r.peso))
+    .filter((n) => !Number.isNaN(n))
+    .reverse();
+
+// Mezcla la rutina del código con lo que la usuaria añadió o escondió.
+export const rutinaFinal = (base, personalizados, dia) => {
+  const delDia = personalizados.filter((p) => p.dia === dia);
+  const ocultos = new Set(delDia.filter((p) => p.oculto).map((p) => p.nombre));
+  return [
+    ...base[dia].ejercicios.filter((e) => !ocultos.has(e.nombre)),
+    ...delDia.filter((p) => !p.oculto),
+  ];
+};

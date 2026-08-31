@@ -33,3 +33,38 @@ export const borrarRegistro = async (id) => {
   const { error } = await supabase.from("registros").delete().eq("id", id);
   if (error) throw error;
 };
+
+export const traerPersonalizados = async () => {
+  const { data, error } = await supabase
+    .from("personalizados")
+    .select("id, dia, nombre, series, reps, imagen, oculto")
+    .order("created_at");
+  if (error) throw error;
+  return data;
+};
+
+export const anadirEjercicio = async (dia, nombre, series, reps) => {
+  const { data, error } = await supabase
+    .from("personalizados")
+    .insert({ dia, nombre, series, reps, oculto: false })
+    .select("id, dia, nombre, series, reps, imagen, oculto")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const ocultarEjercicio = async (dia, nombre) => {
+  const { data, error } = await supabase
+    .from("personalizados")
+    .insert({ dia, nombre, oculto: true })
+    .select("id, dia, nombre, series, reps, imagen, oculto")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+// Quita la fila: devuelve un ejercicio base a la vista, o borra uno añadido.
+export const quitarPersonalizado = async (id) => {
+  const { error } = await supabase.from("personalizados").delete().eq("id", id);
+  if (error) throw error;
+};

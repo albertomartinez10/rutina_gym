@@ -2,10 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
+  cargarSeries, guardarSeries, marcarSerie, racha, progresion, rutinaFinal,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia } from "./frases.js";
-import { traerHistorico, insertarRegistro, borrarRegistro } from "./supabase.js";
+import {
+  traerHistorico, insertarRegistro, borrarRegistro,
+  traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
+} from "./supabase.js";
+import Descanso from "./Descanso.jsx";
+import Grafica from "./Grafica.jsx";
 
 const rutina = [
   {
@@ -44,6 +50,9 @@ export default function App() {
   const [diaActivo, setDiaActivo] = useState(0);
   const [historico, setHistorico] = useState(cargar);
   const [hechos, setHechos] = useState(cargarHechos);
+  const [series, setSeries] = useState(cargarSeries);
+  const [personalizados, setPersonalizados] = useState([]);
+  const [editando, setEditando] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
 
@@ -55,6 +64,9 @@ export default function App() {
     traerHistorico()
       .then((datos) => vivo && (setHistorico(datos), setSinConexion(false)))
       .catch(() => vivo && setSinConexion(true));
+    traerPersonalizados()
+      .then((p) => vivo && setPersonalizados(p))
+      .catch(() => {});
     return () => {
       vivo = false;
     };
@@ -62,6 +74,7 @@ export default function App() {
 
   useEffect(() => guardar(historico), [historico]);
   useEffect(() => guardarHechos(hechos), [hechos]);
+  useEffect(() => guardarSeries(series), [series]);
 
   // El aviso se va solo a los 3s.
   useEffect(() => {
@@ -94,7 +107,41 @@ export default function App() {
     if (reg?.id) await borrarRegistro(reg.id).catch(() => setSinConexion(true));
   };
 
-  const ejercicios = rutina[diaActivo].ejercicios;
+  const diasSeguidos = useMemo(() => racha(historico), [historico]);
+
+  const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
+
+  const anadir = async (nombre, ser, reps) => {
+    try {
+      const fila = await anadirEjercicio(diaActivo, nombre, ser || "3", reps || "10-12");
+      setPersonalizados((p) => [...p, fila]);
+      setAviso("Ejercicio añadido 💪");
+    } catch {
+      setAviso("No se ha podido añadir. ¿Ya existe ese nombre?");
+    }
+  };
+
+  // Si es añadido se borra; si es de la rutina base se marca como oculto.
+  const quitar = async (ej) => {
+    const propio = personalizados.find((p) => p.dia === diaActivo && p.nombre === ej.nombre && !p.oculto);
+    try {
+      if (propio) {
+        await quitarPersonalizado(propio.id);
+        setPersonalizados((p) => p.filter((x) => x.id !== propio.id));
+      } else {
+        const fila = await ocultarEjercicio(diaActivo, ej.nombre);
+        setPersonalizados((p) => [...p, fila]);
+      }
+    } catch {
+      setAviso("No se ha podido quitar");
+    }
+  };
+
+  const restaurar = async () => {
+    const delDia = personalizados.filter((p) => p.dia === diaActivo && p.oculto);
+    await Promise.all(delDia.map((p) => quitarPersonalizado(p.id).catch(() => {})));
+    setPersonalizados((p) => p.filter((x) => !(x.dia === diaActivo && x.oculto)));
+  };
   const completados = ejercicios.filter((e) => hechos.includes(e.nombre)).length;
   const porcentaje = Math.round((completados / ejercicios.length) * 100);
   const terminado = completados === ejercicios.length;
@@ -109,7 +156,9 @@ export default function App() {
         </div>
         <h1 className="titulo" style={s.titulo}>De parte de tu gymbro {"<3"}</h1>
         <p style={s.frase}>{fraseDelDia()}</p>
-        <p style={s.lema}>Cada sesión te deja más fuerte de lo que ya estás 🦾</p>
+        {diasSeguidos > 1 && (
+          <p style={s.racha}>🔥 {diasSeguidos} días seguidos. No rompas la cadena</p>
+        )}
         {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
       </header>
 
@@ -131,6 +180,9 @@ export default function App() {
         <div style={s.progresoTexto}>
           <span>{terminado ? fraseFinal : `${completados} de ${ejercicios.length} hechos · sigue sumando fuerza`}</span>
           <span style={s.porcentaje}>{porcentaje}%</span>
+          <button onClick={() => setEditando((v) => !v)} style={s.editar}>
+            {editando ? "Listo" : "Editar"}
+          </button>
         </div>
         <div style={s.barra}>
           <div style={{ ...s.barraRelleno, width: `${porcentaje}%` }} />
@@ -148,18 +200,24 @@ export default function App() {
             marcar={() => (vibrar(15), setHechos((n) => alternar(n, ej.nombre)))}
             abierto={abierto === ej.nombre}
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
+            series={series[ej.nombre] || 0}
+            tocarSerie={(i) => (vibrar(10), setSeries((x) => marcarSerie(x, ej.nombre, i)))}
+            editando={editando}
+            quitar={() => quitar(ej)}
             apuntar={apuntar}
             borrar={borrar}
           />
         ))}
+        {editando && <NuevoEjercicio anadir={anadir} restaurar={restaurar} />}
       </main>
 
       {aviso && <div style={s.aviso}>{aviso}</div>}
+      <Descanso />
     </div>
   );
 }
 
-function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, borrar }) {
+function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
   const [peso, setPeso] = useState("");
   const [reps, setReps] = useState("");
   const ultimo = registros[0];
@@ -187,14 +245,38 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
         >
           ✓
         </button>
+        {editando && (
+          <button onClick={quitar} style={s.quitar} aria-label={"Quitar " + ej.nombre}>
+            Quitar
+          </button>
+        )}
       </div>
 
-      <img src={ej.imagen} alt={ej.nombre} loading="lazy" style={s.gif} />
+      {ej.imagen ? (
+        <img src={ej.imagen} alt={ej.nombre} loading="lazy" style={s.gif} />
+      ) : (
+        <div style={s.sinGif}>💪</div>
+      )}
 
       <div style={s.badges}>
         <span style={s.badge}>{ej.series} series</span>
         <span style={s.badge}>{ej.reps} reps</span>
         {ultimo && <span style={s.badgeUltimo}>último: {ultimo.peso} kg</span>}
+      </div>
+
+      <div style={s.seriesFila}>
+        {Array.from({ length: Number(ej.series) || 0 }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => tocarSerie(i)}
+            style={{ ...s.serie, ...(i < series ? s.serieOn : null) }}
+            aria-label={`Serie ${i + 1}${i < series ? " hecha" : ""}`}
+            aria-pressed={i < series}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <span style={s.seriesTexto}>{series}/{ej.series} series</span>
       </div>
 
       <form onSubmit={enviar} style={s.form}>
@@ -225,6 +307,8 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
       </button>
 
       {abierto && (
+        <>
+        <Grafica pesos={progresion(registros)} />
         <ul style={s.historico}>
           {registros.length === 0 && <li style={s.vacio}>Aún no has apuntado nada 👀</li>}
           {registros.map((r, i) => (
@@ -239,8 +323,56 @@ function Ejercicio({ ej, registros, hecho, marcar, abierto, toggle, apuntar, bor
             </li>
           ))}
         </ul>
+        </>
       )}
     </article>
+  );
+}
+
+function NuevoEjercicio({ anadir, restaurar }) {
+  const [nombre, setNombre] = useState("");
+  const [ser, setSer] = useState("");
+  const [reps, setReps] = useState("");
+
+  const enviar = (e) => {
+    e.preventDefault();
+    if (!nombre.trim()) return;
+    anadir(nombre.trim(), ser, reps);
+    setNombre("");
+    setSer("");
+    setReps("");
+  };
+
+  return (
+    <form onSubmit={enviar} style={s.nuevo}>
+      <h2 style={s.nombre}>Añadir ejercicio</h2>
+      <input
+        placeholder="Nombre del ejercicio"
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        style={{ ...s.input, width: "100%", marginBottom: "8px" }}
+      />
+      <div style={s.form}>
+        <input
+          type="number"
+          inputMode="numeric"
+          placeholder="series"
+          value={ser}
+          onChange={(e) => setSer(e.target.value)}
+          style={s.input}
+        />
+        <input
+          placeholder="reps"
+          value={reps}
+          onChange={(e) => setReps(e.target.value)}
+          style={s.input}
+        />
+        <button type="submit" style={s.guardar}>Añadir</button>
+      </div>
+      <button type="button" onClick={restaurar} style={s.verMas}>
+        Recuperar los ejercicios que he quitado
+      </button>
+    </form>
   );
 }
 
@@ -309,6 +441,56 @@ const s = {
     background: "rgba(11,16,32,0.82)",
     backdropFilter: "blur(12px)",
   },
+  racha: {
+    margin: "8px 0 0",
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#fb923c",
+  },
+  seriesFila: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" },
+  serie: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.04)",
+    color: "#64748b",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  serieOn: {
+    background: "rgba(59,130,246,0.25)",
+    borderColor: "rgba(96,165,250,0.7)",
+    color: "#fff",
+  },
+  seriesTexto: { fontSize: "12px", color: "#64748b", marginLeft: "auto" },
+  editar: {
+    marginLeft: "10px",
+    padding: "2px 10px",
+    borderRadius: "99px",
+    border: "1px solid rgba(255,255,255,0.15)",
+    background: "transparent",
+    color: "#94a3b8",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+  quitar: {
+    padding: "8px 12px",
+    borderRadius: "99px",
+    border: "1px solid rgba(248,113,113,0.4)",
+    background: "rgba(248,113,113,0.1)",
+    color: "#f87171",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  nuevo: {
+    background: "rgba(255,255,255,0.03)",
+    border: "1px dashed rgba(255,255,255,0.18)",
+    borderRadius: "22px",
+    padding: "16px",
+  },
   lista: { display: "grid", gap: "18px" },
   card: {
     background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))",
@@ -328,6 +510,15 @@ const s = {
     borderRadius: "12px",
     padding: "8px",
     boxSizing: "border-box",
+  },
+  sinGif: {
+    display: "grid",
+    placeItems: "center",
+    aspectRatio: "4 / 3",
+    maxHeight: "140px",
+    borderRadius: "12px",
+    background: "rgba(255,255,255,0.04)",
+    fontSize: "40px",
   },
   badges: { display: "flex", flexWrap: "wrap", gap: "8px", margin: "12px 0" },
   badge: {
@@ -469,7 +660,7 @@ const s = {
   aviso: {
     position: "fixed",
     left: "50%",
-    bottom: "calc(24px + env(safe-area-inset-bottom))",
+    bottom: "calc(78px + env(safe-area-inset-bottom))",
     transform: "translateX(-50%)",
     width: "max-content",
     maxWidth: "90vw",
