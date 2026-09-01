@@ -87,3 +87,10 @@ test("el dia de femoral incluye el hombro", () => {
   assert.ok(nombres.includes("Press hombro mancuernas"));
   assert.ok(nombres.includes("Elevaciones laterales"));
 });
+
+test("cada dia tiene un nombre corto para la pestaña", () => {
+  Object.values(RUTINAS).flat().forEach((d) => {
+    assert.ok(d.corto, `${d.dia} sin nombre corto`);
+    assert.ok(d.corto.length <= 24, `"${d.corto}" es demasiado largo para una pestaña`);
+  });
+});

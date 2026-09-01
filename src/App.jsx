@@ -234,10 +234,14 @@ export default function App() {
             style={{ ...s.tab, ...(i === diaActivo ? s.tabActiva : null) }}
           >
             <span style={s.tabDia}>{d.dia}</span>
-            <span style={s.tabGrupo}>{d.grupo}</span>
+            <span style={s.tabGrupo}>{d.corto ?? d.grupo.split(" · ")[0]}</span>
           </button>
         ))}
       </nav>
+
+      {rutina[diaActivo].grupo.includes(" · ") && (
+        <p style={s.coletilla}>{rutina[diaActivo].grupo.split(" · ")[1]}</p>
+      )}
 
       <div style={s.progresoCaja}>
         <div style={s.progresoTexto}>
@@ -552,7 +556,8 @@ const s = {
   },
   tab: {
     flex: "1 0 auto",
-    minWidth: "96px",
+    minWidth: "94px",
+    maxWidth: "120px",
     display: "flex",
     flexDirection: "column",
     gap: "2px",
@@ -571,7 +576,8 @@ const s = {
     boxShadow: "0 6px 20px rgba(59,130,246,0.25)",
   },
   tabDia: { fontSize: "13px", fontWeight: 700 },
-  tabGrupo: { fontSize: "12px" },
+  tabGrupo: { fontSize: "11px", lineHeight: 1.25 },
+  coletilla: { margin: "-10px 0 14px", fontSize: "12px", color: "#94a3b8", fontStyle: "italic" },
   sticky: {
     paddingTop: "10px",
     marginBottom: "18px",

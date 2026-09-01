@@ -6,6 +6,7 @@ export const RUTINAS = {
     {
       dia: "Día 1",
       grupo: "Glúteo y cuádriceps 🍑 · para tener más culo, si es que se puede",
+      corto: "Glúteo + cuádriceps 🍑",
       ejercicios: [
         { nombre: "Prensa", series: "3", reps: "8-10", imagen: "https://fitcron.com/wp-content/uploads/2021/04/07401301-Sled-45%C2%B0-Leg-Wide-Press_Thighs_720.gif" },
         { nombre: "Extensión de cuádriceps", series: "3", reps: "10-12", imagen: "https://i.pinimg.com/originals/33/24/5f/33245f9b08426eb8d0860f9261111283.gif" },
@@ -18,6 +19,7 @@ export const RUTINAS = {
     {
       dia: "Día 2",
       grupo: "Espalda y bíceps 💪 · para ponerte mamadísima",
+      corto: "Espalda + bíceps 💪",
       ejercicios: [
         { nombre: "Jalón al pecho", series: "3", reps: "8-12", imagen: `${F}/2021/02/Lat-Pulldown.gif` },
         { nombre: "Remo en polea", series: "3", reps: "10-12", imagen: `${F}/2021/02/Seated-Cable-Row.gif` },
@@ -30,6 +32,7 @@ export const RUTINAS = {
     {
       dia: "Día 3",
       grupo: "Glúteo, femoral y hombro 🔥 · para partirlo en los pogos",
+      corto: "Femoral + hombro 🔥",
       ejercicios: [
         { nombre: "Hip Thrust", series: "3", reps: "10-12", imagen: "https://gymvisual.com/img/p/5/7/6/1/5761.gif" },
         { nombre: "Curl femoral", series: "3", reps: "12", imagen: `${F}/2021/02/Leg-Curl.gif` },
@@ -45,6 +48,7 @@ export const RUTINAS = {
     {
       dia: "Día 1",
       grupo: "Espalda y bíceps 🔙",
+      corto: "Espalda + bíceps 🔙",
       ejercicios: [
         { nombre: "Jalón al pecho", series: "4", reps: "8-12", imagen: `${F}/2021/02/Lat-Pulldown.gif` },
         { nombre: "Remo gironda", series: "4", reps: "8-12", imagen: `${F}/2021/02/Seated-Cable-Row.gif` },
@@ -58,6 +62,7 @@ export const RUTINAS = {
     {
       dia: "Día 2",
       grupo: "Pecho, hombro y tríceps 💥",
+      corto: "Pecho + hombro 💥",
       ejercicios: [
         { nombre: "Press inclinado con mancuerna", series: "4", reps: "8-12", imagen: `${F}/2021/02/Incline-Dumbbell-Press.gif` },
         { nombre: "Press plano", series: "4", reps: "6-10", imagen: `${F}/2021/02/Barbell-Bench-Press.gif` },
@@ -73,6 +78,7 @@ export const RUTINAS = {
     {
       dia: "Día 3",
       grupo: "Pierna 🦵",
+      corto: "Pierna 🦵",
       ejercicios: [
         { nombre: "Sentadilla pendular", series: "4", reps: "8-12", imagen: "https://www.thingys.com.ar/gymapps/tutorial/hack_new.gif" },
         { nombre: "Prensa", series: "4", reps: "10-12", imagen: "https://fitcron.com/wp-content/uploads/2021/04/07401301-Sled-45%C2%B0-Leg-Wide-Press_Thighs_720.gif" },
