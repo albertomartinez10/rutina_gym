@@ -19,6 +19,7 @@ import Logros from "./Logros.jsx";
 import Calendario from "./Calendario.jsx";
 import Pique from "./Pique.jsx";
 import { porPerfil, resumenDe } from "./pique.js";
+import { soportadas, activar, desactivar, yaActivadas, avisar } from "./notificaciones.js";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import { rutinaDe } from "./rutinas.js";
@@ -37,6 +38,7 @@ export default function App() {
   const [inicioSesion, setInicioSesion] = useState(() => cargarSesion(cargarPerfil()));
   const [pedirDescanso, setPedirDescanso] = useState(0);
   const [todos, setTodos] = useState({});
+  const [avisos, setAvisos] = useState(false);
   const [editando, setEditando] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -70,6 +72,10 @@ export default function App() {
 
   useEffect(() => guardar(perfil, historico), [perfil, historico]);
   useEffect(() => guardarCola(cola), [cola]);
+
+  useEffect(() => {
+    yaActivadas().then(setAvisos);
+  }, []);
 
   // Reintenta subir lo que quedó pendiente en cuanto vuelve la cobertura.
   useEffect(() => {
@@ -136,6 +142,17 @@ export default function App() {
     } catch {
       // Sin conexión no pasa nada: al apuntar el peso el día también cuenta.
     }
+  };
+
+  const cambiarAvisos = async () => {
+    if (avisos) {
+      await desactivar();
+      setAvisos(false);
+      return;
+    }
+    const ok = await activar(perfil);
+    setAvisos(ok);
+    setAviso(ok ? "Avisos activados 🔔" : "El móvil no ha dado permiso para avisos");
   };
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
@@ -282,6 +299,11 @@ export default function App() {
         <p style={{ ...s.deQuien, color: quien.color }}>
           {quien.emoji} Estás en el perfil de {quien.nombre}
         </p>
+        {soportadas() && (
+          <button onClick={cambiarAvisos} style={{ ...s.avisosBoton, ...(avisos ? s.avisosOn : null) }}>
+            {avisos ? "🔔 Avisos activados" : "🔕 Activar avisos del otro"}
+          </button>
+        )}
         {sinConexion && (
           <p style={s.offline}>
             Sin conexión
@@ -336,7 +358,17 @@ export default function App() {
             hecho={hechos.includes(ej.nombre)}
             marcar={() => {
               vibrar(15);
-              if (!hechos.includes(ej.nombre)) marcarHoyEntrenado();
+              if (!hechos.includes(ej.nombre)) {
+                marcarHoyEntrenado();
+                const van = hechos.length + 1;
+                avisar(
+                  perfil,
+                  `${quien.emoji} ${quien.nombre} está en el gym`,
+                  van === ejercicios.length
+                    ? `¡Ha terminado ${rutina[diaActivo].corto}! 🎉`
+                    : `Acaba de hacer ${ej.nombre} · ${van} de ${ejercicios.length}`,
+                );
+              }
               setHechos((n) => alternar(n, ej.nombre));
             }}
             abierto={abierto === ej.nombre}
@@ -732,6 +764,18 @@ const s = {
     cursor: "pointer",
   },
   perfilActivo: { background: "rgba(255,255,255,0.08)" },
+  avisosBoton: {
+    marginTop: "10px",
+    padding: "7px 14px",
+    borderRadius: "99px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.04)",
+    color: "#94a3b8",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  avisosOn: { borderColor: "rgba(74,222,128,0.5)", color: "#4ade80" },
   deQuien: { margin: "8px 0 0", fontSize: "12px", fontWeight: 700 },
   racha: {
     margin: "8px 0 0",

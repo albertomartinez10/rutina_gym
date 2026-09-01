@@ -34,3 +34,35 @@ self.addEventListener("fetch", (e) => {
     ),
   );
 });
+
+// Avisos de la otra persona cuando entrena.
+self.addEventListener("push", (e) => {
+  const d = (() => {
+    try {
+      return e.data.json();
+    } catch {
+      return { titulo: "Gymbro", cuerpo: e.data?.text() ?? "" };
+    }
+  })();
+
+  e.waitUntil(
+    self.registration.showNotification(d.titulo, {
+      body: d.cuerpo,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      vibrate: [80, 40, 80],
+      tag: "gymbro-entreno",
+      renotify: true,
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((abiertas) => {
+      const abierta = abiertas.find((c) => c.url.includes(self.location.origin));
+      return abierta ? abierta.focus() : clients.openWindow("/");
+    }),
+  );
+});
