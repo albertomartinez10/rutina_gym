@@ -3,12 +3,14 @@ import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
   cargarSeries, guardarSeries, marcarSerie, racha, progresion, rutinaFinal,
+  hoy, diasEntrenados,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia } from "./frases.js";
 import {
   traerHistorico, insertarRegistro, borrarRegistro,
   traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
+  traerEntrenos, guardarEntreno,
 } from "./supabase.js";
 import Descanso from "./Descanso.jsx";
 import Logros from "./Logros.jsx";
@@ -58,6 +60,7 @@ export default function App() {
   const [hechos, setHechos] = useState(() => cargarHechos(cargarPerfil()));
   const [series, setSeries] = useState(() => cargarSeries(cargarPerfil()));
   const [personalizados, setPersonalizados] = useState([]);
+  const [entrenos, setEntrenos] = useState([]);
   const [editando, setEditando] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -72,6 +75,9 @@ export default function App() {
       .catch(() => vivo && setSinConexion(true));
     traerPersonalizados(perfil)
       .then((p) => vivo && setPersonalizados(p))
+      .catch(() => {});
+    traerEntrenos(perfil)
+      .then((e) => vivo && setEntrenos(e))
       .catch(() => {});
     return () => {
       vivo = false;
@@ -97,6 +103,19 @@ export default function App() {
     setHistorico(cargar(id));
     setHechos(cargarHechos(id));
     setSeries(cargarSeries(id));
+    setEntrenos([]);
+  };
+
+  // Marcar un ejercicio o una serie ya cuenta como día de gimnasio: se apunta solo.
+  const marcarHoyEntrenado = async () => {
+    const fecha = hoy();
+    if (entrenos.some((e) => e.fecha === fecha)) return;
+    try {
+      const fila = await guardarEntreno(perfil, fecha, null, null);
+      setEntrenos((x) => [fila, ...x]);
+    } catch {
+      // Sin conexión no pasa nada: al apuntar el peso el día también cuenta.
+    }
   };
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
@@ -113,6 +132,7 @@ export default function App() {
     setHistorico((h) => apuntarEn(h, nombre, peso, reps, extra));
     // Apuntar peso cuenta como ejercicio hecho: la barra sube sola.
     setHechos((n) => (n.includes(nombre) ? n : [...n, nombre]));
+    marcarHoyEntrenado();
     const antes = mejorPeso(historico[nombre] || []);
     const logro = logroNuevo(nombre, antes, Number(peso), perfil);
     if (logro) {
@@ -130,7 +150,7 @@ export default function App() {
     if (reg?.id) await borrarRegistro(reg.id).catch(() => setSinConexion(true));
   };
 
-  const diasSeguidos = useMemo(() => racha(historico), [historico]);
+  const diasSeguidos = useMemo(() => racha(diasEntrenados(historico, entrenos)), [historico, entrenos]);
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
 
@@ -259,13 +279,21 @@ export default function App() {
             ej={ej}
             registros={historico[ej.nombre] || []}
             hecho={hechos.includes(ej.nombre)}
-            marcar={() => (vibrar(15), setHechos((n) => alternar(n, ej.nombre)))}
+            marcar={() => {
+              vibrar(15);
+              if (!hechos.includes(ej.nombre)) marcarHoyEntrenado();
+              setHechos((n) => alternar(n, ej.nombre));
+            }}
             abierto={abierto === ej.nombre}
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
             nivel={nivelDe(ej.nombre, mejorPeso(historico[ej.nombre] || []), perfil)}
             meta={siguienteMeta(ej.nombre, historico, perfil)}
             series={series[ej.nombre] || 0}
-            tocarSerie={(i) => (vibrar(10), setSeries((x) => marcarSerie(x, ej.nombre, i)))}
+            tocarSerie={(i) => {
+              vibrar(10);
+              marcarHoyEntrenado();
+              setSeries((x) => marcarSerie(x, ej.nombre, i));
+            }}
             editando={editando}
             quitar={() => quitar(ej)}
             apuntar={apuntar}
@@ -281,7 +309,14 @@ export default function App() {
       )}
 
       {pantalla === "calendario" && (
-        <Calendario historico={historico} perfil={perfil} color={quien.color} avisar={setAviso} />
+        <Calendario
+          historico={historico}
+          entrenos={entrenos}
+          setEntrenos={setEntrenos}
+          perfil={perfil}
+          color={quien.color}
+          avisar={setAviso}
+        />
       )}
 
       {aviso && (

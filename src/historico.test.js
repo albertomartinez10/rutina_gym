@@ -128,21 +128,26 @@ test("marcarSerie marca hasta la que tocas y desmarca si repites", () => {
 
 test("racha cuenta dias seguidos hacia atras", () => {
   const h = { Prensa: [{ fecha: "2026-08-31" }, { fecha: "2026-08-30" }, { fecha: "2026-08-29" }] };
-  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 3);
+  assert.equal(racha(diasEntrenados(h), new Date("2026-08-31T10:00:00Z")), 3);
+});
+
+test("racha cuenta tambien los dias marcados sin pesos", () => {
+  const dias = diasEntrenados({}, [{ fecha: "2026-08-31" }, { fecha: "2026-08-30" }]);
+  assert.equal(racha(dias, new Date("2026-08-31T10:00:00Z")), 2);
 });
 
 test("racha sigue viva si hoy aun no has entrenado", () => {
   const h = { Prensa: [{ fecha: "2026-08-30" }, { fecha: "2026-08-29" }] };
-  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 2);
+  assert.equal(racha(diasEntrenados(h), new Date("2026-08-31T10:00:00Z")), 2);
 });
 
 test("racha se rompe con un hueco", () => {
   const h = { Prensa: [{ fecha: "2026-08-31" }, { fecha: "2026-08-28" }] };
-  assert.equal(racha(h, new Date("2026-08-31T10:00:00Z")), 1);
+  assert.equal(racha(diasEntrenados(h), new Date("2026-08-31T10:00:00Z")), 1);
 });
 
 test("racha es 0 sin registros", () => {
-  assert.equal(racha({}), 0);
+  assert.equal(racha(diasEntrenados({})), 0);
 });
 
 test("progresion devuelve los pesos del mas antiguo al mas nuevo", () => {

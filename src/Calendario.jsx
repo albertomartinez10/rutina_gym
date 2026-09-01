@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { semanasDelMes, diasEntrenados, hoy, fechaCorta } from "./historico.js";
-import { traerEntrenos, guardarEntreno, borrarEntreno, urlFoto } from "./supabase.js";
+import { guardarEntreno, borrarEntreno, urlFoto } from "./supabase.js";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -8,23 +8,12 @@ const MESES = [
 ];
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
 
-export default function Calendario({ historico, perfil, color, avisar }) {
+export default function Calendario({ historico, entrenos, setEntrenos, perfil, color, avisar }) {
   const ahora = new Date();
   const [ano, setAno] = useState(ahora.getFullYear());
   const [mes, setMes] = useState(ahora.getMonth());
-  const [entrenos, setEntrenos] = useState([]);
   const [dia, setDia] = useState(hoy());
   const [subiendo, setSubiendo] = useState(false);
-
-  useEffect(() => {
-    let vivo = true;
-    traerEntrenos(perfil)
-      .then((e) => vivo && setEntrenos(e))
-      .catch(() => {});
-    return () => {
-      vivo = false;
-    };
-  }, [perfil]);
 
   const marcados = diasEntrenados(historico, entrenos);
   const delDia = entrenos.filter((e) => e.fecha === dia);

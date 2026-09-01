@@ -79,8 +79,7 @@ export const marcarSerie = (series, nombre, i) => ({
 });
 
 // Días seguidos entrenando contando hacia atrás desde hoy (o ayer, si hoy aún no ha tocado).
-export const racha = (historico, desde = new Date()) => {
-  const dias = new Set(Object.values(historico).flat().map((r) => r.fecha));
+export const racha = (dias, desde = new Date()) => {
   if (!dias.size) return 0;
 
   const iso = (d) => d.toISOString().slice(0, 10);
