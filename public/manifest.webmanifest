@@ -1,12 +1,18 @@
 {
+  "id": "/",
   "name": "De parte de tu gymbro",
   "short_name": "Gymbro",
+  "description": "Rutina de gimnasio de Nuria y Alberto: pesos, medallas y fotos del entreno.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
+  "lang": "es",
   "icons": [
-    { "src": "/gymbro.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
