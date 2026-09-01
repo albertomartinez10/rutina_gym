@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { NIVELES, logros, siguienteMeta, nivelDe, mejorPeso, escala } from "./logros.js";
 
 export default function Logros({ historico, perfil, ejercicios, color }) {
-  const [abierto, setAbierto] = useState(false);
+  // Pantalla propia: siempre desplegado, sin cabecera plegable.
+  const abierto = true;
   const conseguidos = logros(historico, perfil);
 
   const metas = ejercicios
@@ -13,7 +13,7 @@ export default function Logros({ historico, perfil, ejercicios, color }) {
 
   return (
     <section style={s.caja}>
-      <button onClick={() => setAbierto((v) => !v)} style={s.cabecera}>
+      <div style={s.cabecera}>
         <span style={s.titulo}>Medallero</span>
         <span style={s.tira}>
           {NIVELES.map((n, i) => (
@@ -26,8 +26,7 @@ export default function Logros({ historico, perfil, ejercicios, color }) {
           ))}
         </span>
         <span style={{ ...s.cuenta, color }}>{conseguidos.length}</span>
-        <span style={s.flecha}>{abierto ? "▲" : "▼"}</span>
-      </button>
+      </div>
 
       {abierto && (
         <div style={s.cuerpo}>

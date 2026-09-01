@@ -12,8 +12,9 @@ import {
 } from "./supabase.js";
 import Descanso from "./Descanso.jsx";
 import Logros from "./Logros.jsx";
+import Calendario from "./Calendario.jsx";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
-import { logroNuevo, mejorPeso } from "./logros.js";
+import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import Grafica from "./Grafica.jsx";
 
 const rutina = [
@@ -51,6 +52,7 @@ const rutina = [
 
 export default function App() {
   const [perfil, setPerfil] = useState(cargarPerfil);
+  const [pantalla, setPantalla] = useState("rutina");
   const [diaActivo, setDiaActivo] = useState(0);
   const [historico, setHistorico] = useState(() => cargar(cargarPerfil()));
   const [hechos, setHechos] = useState(() => cargarHechos(cargarPerfil()));
@@ -65,10 +67,6 @@ export default function App() {
   // Pinta ya con el cache local y luego sincroniza con Supabase.
   useEffect(() => {
     let vivo = true;
-    guardarPerfil(perfil);
-    setHistorico(cargar(perfil));
-    setHechos(cargarHechos(perfil));
-    setSeries(cargarSeries(perfil));
     traerHistorico(perfil)
       .then((datos) => vivo && (setHistorico(datos), setSinConexion(false)))
       .catch(() => vivo && setSinConexion(true));
@@ -91,6 +89,15 @@ export default function App() {
     const t = setTimeout(() => setAviso(null), 3000);
     return () => clearTimeout(t);
   }, [aviso]);
+
+  // Cambiar de perfil trae de golpe su cache local; lo remoto llega por el efecto.
+  const cambiarPerfil = (id) => {
+    guardarPerfil(id);
+    setPerfil(id);
+    setHistorico(cargar(id));
+    setHechos(cargarHechos(id));
+    setSeries(cargarSeries(id));
+  };
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
 
@@ -164,6 +171,7 @@ export default function App() {
 
   const fraseFinal = useMemo(() => finDeDia(), [terminado, diaActivo]);
   const quien = datosPerfil(perfil);
+  const todosLosEjercicios = [0, 1, 2].flatMap((d) => rutinaFinal(rutina, personalizados, d));
 
   return (
     <div style={s.page}>
@@ -171,7 +179,7 @@ export default function App() {
         {PERFILES.map((p) => (
           <button
             key={p.id}
-            onClick={() => setPerfil(p.id)}
+            onClick={() => cambiarPerfil(p.id)}
             style={{
               ...s.perfil,
               ...(p.id === perfil ? { ...s.perfilActivo, borderColor: p.color, color: p.color } : null),
@@ -179,6 +187,23 @@ export default function App() {
             aria-pressed={p.id === perfil}
           >
             {p.emoji} {p.nombre}
+          </button>
+        ))}
+      </nav>
+
+      <nav style={s.menu}>
+        {[
+          ["rutina", "🏋️ Rutina"],
+          ["medallas", "🏅 Medallas"],
+          ["calendario", "📅 Calendario"],
+        ].map(([id, texto]) => (
+          <button
+            key={id}
+            onClick={() => setPantalla(id)}
+            style={{ ...s.menuBoton, ...(pantalla === id ? { ...s.menuActivo, color: quien.color } : null) }}
+            aria-pressed={pantalla === id}
+          >
+            {texto}
           </button>
         ))}
       </nav>
@@ -198,6 +223,7 @@ export default function App() {
         {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
       </header>
 
+      {pantalla === "rutina" && (<>
       <div className="sticky" style={s.sticky}>
       <nav style={s.tabs}>
         {rutina.map((d, i) => (
@@ -226,8 +252,6 @@ export default function App() {
       </div>
       </div>
 
-      <Logros historico={historico} perfil={perfil} ejercicios={ejercicios} color={quien.color} />
-
       <main style={s.lista}>
         {ejercicios.map((ej) => (
           <Ejercicio
@@ -238,6 +262,8 @@ export default function App() {
             marcar={() => (vibrar(15), setHechos((n) => alternar(n, ej.nombre)))}
             abierto={abierto === ej.nombre}
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
+            nivel={nivelDe(ej.nombre, mejorPeso(historico[ej.nombre] || []), perfil)}
+            meta={siguienteMeta(ej.nombre, historico, perfil)}
             series={series[ej.nombre] || 0}
             tocarSerie={(i) => (vibrar(10), setSeries((x) => marcarSerie(x, ej.nombre, i)))}
             editando={editando}
@@ -248,6 +274,15 @@ export default function App() {
         ))}
         {editando && <NuevoEjercicio anadir={anadir} restaurar={restaurar} />}
       </main>
+      </>)}
+
+      {pantalla === "medallas" && (
+        <Logros historico={historico} perfil={perfil} ejercicios={todosLosEjercicios} color={quien.color} />
+      )}
+
+      {pantalla === "calendario" && (
+        <Calendario historico={historico} perfil={perfil} color={quien.color} avisar={setAviso} />
+      )}
 
       {aviso && (
         <div style={s.aviso}>
@@ -260,7 +295,7 @@ export default function App() {
   );
 }
 
-function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
+function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
   const [peso, setPeso] = useState("");
   const [reps, setReps] = useState("");
   const [ampliada, setAmpliada] = useState(false);
@@ -291,7 +326,15 @@ function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando,
         ) : (
           <div style={s.sinGif}>💪</div>
         )}
-        <h2 style={s.nombre}>{ej.nombre}</h2>
+        <div style={s.tituloEj}>
+          <h2 style={s.nombre}>{ej.nombre}</h2>
+          {nivel >= 0 && (
+            <span style={s.suMedalla}>
+              <img src={NIVELES[nivel].medalla} alt={NIVELES[nivel].nombre} style={s.medallaEj} />
+              {NIVELES[nivel].nombre}
+            </span>
+          )}
+        </div>
         <button
           onClick={marcar}
           className={hecho ? "check-on" : undefined}
@@ -313,6 +356,13 @@ function Ejercicio({ ej, registros, hecho, marcar, series, tocarSerie, editando,
         <span style={s.badge}>{ej.reps} reps</span>
         {ultimo && <span style={s.badgeUltimo}>último: {ultimo.peso} kg</span>}
       </div>
+
+      {meta && (
+        <p style={s.siguienteMedalla}>
+          <img src={meta.medalla} alt="" style={s.medallaMini} />
+          faltan {meta.falta} kg para {meta.nombre}
+        </p>
+      )}
 
       <div style={s.seriesFila}>
         {Array.from({ length: Number(ej.series) || 0 }, (_, i) => (
@@ -486,6 +536,19 @@ const s = {
     paddingTop: "10px",
     marginBottom: "18px",
   },
+  menu: { display: "flex", gap: "6px", marginBottom: "16px" },
+  menuBoton: {
+    flex: 1,
+    padding: "10px 4px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#94a3b8",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  menuActivo: { background: "rgba(255,255,255,0.09)" },
   perfiles: { display: "flex", gap: "8px", marginBottom: "14px" },
   perfil: {
     flex: 1,
@@ -506,6 +569,26 @@ const s = {
     fontWeight: 700,
     color: "#fb923c",
   },
+  tituloEj: { flex: 1, minWidth: "110px" },
+  suMedalla: {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    marginTop: "3px",
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#fbbf24",
+  },
+  medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
+  siguienteMedalla: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    margin: "0 0 10px",
+    fontSize: "11px",
+    color: "#64748b",
+  },
+  medallaMini: { width: "11px", height: "18px", objectFit: "contain", filter: "grayscale(1)", opacity: 0.7 },
   seriesFila: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" },
   serie: {
     width: "38px",

@@ -70,3 +70,40 @@ export const quitarPersonalizado = async (id) => {
   const { error } = await supabase.from("personalizados").delete().eq("id", id);
   if (error) throw error;
 };
+
+export const traerEntrenos = async (perfil) => {
+  const { data, error } = await supabase
+    .from("entrenos")
+    .select("id, fecha, foto, nota")
+    .eq("perfil", perfil)
+    .order("fecha", { ascending: false });
+  if (error) throw error;
+  return data;
+};
+
+export const urlFoto = (ruta) =>
+  ruta ? supabase.storage.from("entrenos").getPublicUrl(ruta).data.publicUrl : null;
+
+// Sube la foto al bucket y deja la fila del entreno apuntando a ella.
+export const guardarEntreno = async (perfil, fecha, archivo, nota) => {
+  let ruta = null;
+  if (archivo) {
+    ruta = `${perfil}/${fecha}-${Date.now()}-${archivo.name.replace(/[^\w.-]/g, "_")}`;
+    const { error } = await supabase.storage.from("entrenos").upload(ruta, archivo);
+    if (error) throw error;
+  }
+
+  const { data, error } = await supabase
+    .from("entrenos")
+    .insert({ perfil, fecha, foto: ruta, nota: nota || null })
+    .select("id, fecha, foto, nota")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const borrarEntreno = async (id, ruta) => {
+  if (ruta) await supabase.storage.from("entrenos").remove([ruta]);
+  const { error } = await supabase.from("entrenos").delete().eq("id", id);
+  if (error) throw error;
+};

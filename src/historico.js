@@ -112,3 +112,25 @@ export const rutinaFinal = (base, personalizados, dia) => {
     ...delDia.filter((p) => !p.oculto),
   ];
 };
+
+// Rejilla del mes: 6 semanas de lunes a domingo, con null en los huecos.
+export const semanasDelMes = (ano, mes) => {
+  const primero = new Date(Date.UTC(ano, mes, 1));
+  const dias = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const hueco = (primero.getUTCDay() + 6) % 7; // lunes = 0
+
+  const celdas = [
+    ...Array(hueco).fill(null),
+    ...Array.from({ length: dias }, (_, i) => `${ano}-${String(mes + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`),
+  ];
+  while (celdas.length % 7) celdas.push(null);
+
+  return Array.from({ length: celdas.length / 7 }, (_, i) => celdas.slice(i * 7, i * 7 + 7));
+};
+
+// Días con algo apuntado: pesos o entrenos con foto.
+export const diasEntrenados = (historico, entrenos = []) =>
+  new Set([
+    ...Object.values(historico).flat().map((r) => r.fecha),
+    ...entrenos.map((e) => e.fecha),
+  ]);

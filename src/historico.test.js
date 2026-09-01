@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   cargar, guardar, apuntar, borrar, hoy, fechaCorta, KEY,
   delta, alternar, cargarHechos, guardarHechos, HECHOS,
-  marcarSerie, racha, progresion, rutinaFinal,
+  marcarSerie, racha, progresion, rutinaFinal, semanasDelMes, diasEntrenados,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -164,4 +164,25 @@ test("rutinaFinal esconde los ocultos y suma los anadidos", () => {
 test("rutinaFinal sin personalizar deja la rutina base", () => {
   const base = [{ ejercicios: [{ nombre: "Prensa" }] }];
   assert.deepEqual(rutinaFinal(base, [], 0).map((e) => e.nombre), ["Prensa"]);
+});
+
+test("semanasDelMes coloca el 1 en su dia de la semana", () => {
+  // El 1 de septiembre de 2026 es martes: un hueco antes.
+  const sem = semanasDelMes(2026, 8);
+  assert.equal(sem[0][0], null);
+  assert.equal(sem[0][1], "2026-09-01");
+  assert.equal(sem.flat().filter(Boolean).length, 30);
+});
+
+test("semanasDelMes reparte en semanas completas de 7", () => {
+  semanasDelMes(2026, 1).forEach((s) => assert.equal(s.length, 7));
+});
+
+test("diasEntrenados junta pesos y fotos sin repetir", () => {
+  const d = diasEntrenados(
+    { Prensa: [{ fecha: "2026-09-01" }] },
+    [{ fecha: "2026-09-01" }, { fecha: "2026-09-02" }],
+  );
+  assert.equal(d.size, 2);
+  assert.ok(d.has("2026-09-02"));
 });

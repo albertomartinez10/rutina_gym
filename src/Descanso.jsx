@@ -21,13 +21,16 @@ const pitar = () => {
 };
 
 export default function Descanso() {
+  const [duracion, setDuracion] = useState(null);
   const [restante, setRestante] = useState(null);
   const fin = useRef(null);
 
   // Cuenta atrás por hora de fin, no sumando ticks: así no se retrasa
   // si el móvil bloquea la pantalla o suspende el temporizador.
   useEffect(() => {
-    if (restante === null) return;
+    if (duracion === null) return;
+    fin.current = Date.now() + duracion * 1000;
+
     const id = setInterval(() => {
       const quedan = Math.max(0, Math.round((fin.current - Date.now()) / 1000));
       setRestante(quedan);
@@ -35,19 +38,24 @@ export default function Descanso() {
         clearInterval(id);
         navigator.vibrate?.([200, 100, 200]);
         pitar();
-        setTimeout(() => setRestante(null), 2000);
+        setTimeout(() => setDuracion(null), 2000);
       }
     }, 250);
     return () => clearInterval(id);
-  }, [restante === null]);
+  }, [duracion]);
 
   const arrancar = (segundos) => {
-    fin.current = Date.now() + segundos * 1000;
+    setDuracion(segundos);
     setRestante(segundos);
     navigator.vibrate?.(15);
   };
 
-  if (restante === null) {
+  const parar = () => {
+    setDuracion(null);
+    setRestante(null);
+  };
+
+  if (duracion === null) {
     return (
       <div style={s.barra}>
         <span style={s.etiqueta}>Descanso</span>
@@ -63,7 +71,7 @@ export default function Descanso() {
   return (
     <div style={{ ...s.barra, ...s.activa }}>
       <span style={s.cuenta}>{restante === 0 ? "¡Vamos! 💥" : reloj(restante)}</span>
-      <button onClick={() => setRestante(null)} style={s.parar}>
+      <button onClick={parar} style={s.parar}>
         Parar
       </button>
     </div>
