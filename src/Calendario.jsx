@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { semanasDelMes, diasEntrenados, hoy, fechaCorta } from "./historico.js";
-import { guardarEntreno, borrarEntreno, urlFoto, reaccionar, quitarReaccion } from "./supabase.js";
+import { guardarEntreno, borrarEntreno, urlFoto, reaccionar, quitarReaccion, comentar, borrarComentario } from "./supabase.js";
 import { comprimir } from "./foto.js";
 import { datosPerfil } from "./perfiles.js";
 import Ano from "./Ano.jsx";
@@ -44,7 +44,7 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
     setSubiendo(true);
     try {
       const fila = await guardarEntreno(perfil, dia, await comprimir(archivo), null);
-      setEntrenos((x) => [{ ...fila, reacciones: [] }, ...x]);
+      setEntrenos((x) => [{ ...fila, reacciones: [], comentarios: [] }, ...x]);
       avisar?.("Foto guardada 📸");
     } catch {
       avisar?.("No se ha podido subir la foto");
@@ -84,6 +84,24 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
     } catch {
       avisar?.("No se ha podido guardar la reacción");
     }
+  };
+
+  const enviarComentario = async (entreno, texto) => {
+    try {
+      const nuevo = await comentar(entreno.id, perfil, texto);
+      setEntrenos((x) =>
+        x.map((e) => (e.id === entreno.id ? { ...e, comentarios: [...(e.comentarios || []), nuevo] } : e)),
+      );
+    } catch {
+      avisar?.("No se ha podido enviar el comentario");
+    }
+  };
+
+  const quitarComentario = async (entreno, id) => {
+    setEntrenos((x) =>
+      x.map((e) => (e.id === entreno.id ? { ...e, comentarios: e.comentarios.filter((c) => c.id !== id) } : e)),
+    );
+    await borrarComentario(id).catch(() => {});
   };
 
   const quitar = async (entreno) => {
@@ -181,6 +199,13 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
                     );
                   })}
                 </div>
+
+                <Comentarios
+                  entreno={e}
+                  perfil={perfil}
+                  enviar={(t) => enviarComentario(e, t)}
+                  quitar={(id) => quitarComentario(e, id)}
+                />
               </figure>
             );
           })}
@@ -189,6 +214,89 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
     </section>
   );
 }
+
+function Comentarios({ entreno, perfil, enviar, quitar }) {
+  const [texto, setTexto] = useState("");
+  const lista = [...(entreno.comentarios || [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  const mandar = (e) => {
+    e.preventDefault();
+    if (!texto.trim()) return;
+    enviar(texto);
+    setTexto("");
+  };
+
+  return (
+    <div style={c.caja}>
+      {lista.map((com) => {
+        const suyo = datosPerfil(com.perfil);
+        return (
+          <p key={com.id} style={c.linea}>
+            <strong style={{ color: suyo.color }}>{suyo.nombre}</strong> {com.texto}
+            {com.perfil === perfil && (
+              <button onClick={() => quitar(com.id)} style={c.borrar} aria-label="Borrar comentario">✕</button>
+            )}
+          </p>
+        );
+      })}
+
+      <form onSubmit={mandar} style={c.form}>
+        <input
+          placeholder="Escribe un comentario…"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          maxLength={500}
+          enterKeyHint="send"
+          style={c.input}
+        />
+        <button type="submit" style={c.enviar} disabled={!texto.trim()}>Enviar</button>
+      </form>
+    </div>
+  );
+}
+
+const c = {
+  caja: { marginTop: "8px" },
+  linea: {
+    display: "flex",
+    alignItems: "baseline",
+    gap: "6px",
+    margin: "0 0 6px",
+    fontSize: "13px",
+    color: "#cbd5e1",
+    lineHeight: 1.4,
+  },
+  borrar: {
+    marginLeft: "auto",
+    flexShrink: 0,
+    background: "transparent",
+    border: "none",
+    color: "#475569",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+  form: { display: "flex", gap: "6px", marginTop: "8px" },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    padding: "10px 12px",
+    fontSize: "16px",
+    borderRadius: "99px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#fff",
+  },
+  enviar: {
+    padding: "10px 16px",
+    borderRadius: "99px",
+    border: "none",
+    background: "#3b82f6",
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: "14px",
+    cursor: "pointer",
+  },
+};
 
 const s = {
   barra: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" },
@@ -235,9 +343,9 @@ const s = {
     cursor: "pointer",
   },
   vacio: { color: "#64748b", fontSize: "13px", marginTop: "12px" },
-  galeria: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px", marginTop: "12px" },
+  galeria: { display: "grid", gap: "18px", marginTop: "12px" },
   marco: { position: "relative", margin: 0 },
-  foto: { width: "100%", aspectRatio: "3 / 4", objectFit: "cover", borderRadius: "14px", display: "block" },
+  foto: { width: "100%", maxHeight: "70vh", objectFit: "cover", borderRadius: "14px", display: "block" },
   autor: {
     position: "absolute",
     top: "6px",

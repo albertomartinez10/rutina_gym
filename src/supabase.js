@@ -75,7 +75,7 @@ export const quitarPersonalizado = async (id) => {
 export const traerEntrenos = async () => {
   const { data, error } = await supabase
     .from("entrenos")
-    .select("id, perfil, fecha, foto, nota, reacciones(id, perfil, emoji)")
+    .select("id, perfil, fecha, foto, nota, reacciones(id, perfil, emoji), comentarios(id, perfil, texto, created_at)")
     .order("fecha", { ascending: false });
   if (error) throw error;
   return data;
@@ -89,6 +89,21 @@ export const reaccionar = async (entrenoId, perfil, emoji) => {
     .single();
   if (error) throw error;
   return data;
+};
+
+export const comentar = async (entrenoId, perfil, texto) => {
+  const { data, error } = await supabase
+    .from("comentarios")
+    .insert({ entreno_id: entrenoId, perfil, texto: texto.trim() })
+    .select("id, perfil, texto, created_at")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const borrarComentario = async (id) => {
+  const { error } = await supabase.from("comentarios").delete().eq("id", id);
+  if (error) throw error;
 };
 
 export const quitarReaccion = async (id) => {
