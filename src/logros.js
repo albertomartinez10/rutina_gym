@@ -1,10 +1,10 @@
-// Medallas de Twemoji (CC-BY 4.0), guardadas en /public para que se vean sin cobertura.
+// Medallas de Kenney (kenney.nl/assets/medals), dominio público CC0.
 export const NIVELES = [
-  { nombre: "Primer paso", icono: "🥉", medalla: "/medallas/bronce.svg" },
-  { nombre: "Cogiendo ritmo", icono: "🥈", medalla: "/medallas/plata.svg" },
-  { nombre: "Esto va en serio", icono: "🥇", medalla: "/medallas/oro.svg" },
-  { nombre: "Bestia", icono: "🏅", medalla: "/medallas/deportiva.svg" },
-  { nombre: "Leyenda", icono: "🏆", medalla: "/medallas/trofeo.svg" },
+  { nombre: "Primer paso", icono: "🥉", medalla: "/medallas/1-bronce.png" },
+  { nombre: "Cogiendo ritmo", icono: "🥈", medalla: "/medallas/2-plata.png" },
+  { nombre: "Esto va en serio", icono: "🥇", medalla: "/medallas/3-oro.png" },
+  { nombre: "Bestia", icono: "🏅", medalla: "/medallas/4-estrella.png" },
+  { nombre: "Leyenda", icono: "🏆", medalla: "/medallas/5-sol.png" },
 ];
 
 // Kilos que marcan cada nivel. Nuria empieza de cero, así que su escala

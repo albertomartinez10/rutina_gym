@@ -17,4 +17,4 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Medallas
 
-Los iconos de `public/medallas/` son de [Twemoji](https://github.com/jdecked/twemoji), con licencia CC-BY 4.0.
+Las medallas de `public/medallas/` son de [Kenney](https://kenney.nl/assets/medals), en dominio público (CC0).

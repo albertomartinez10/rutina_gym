@@ -731,7 +731,7 @@ const s = {
     fontSize: "12px",
     color: "#fbbf24",
   },
-  avisoMedalla: { width: "26px", height: "26px", verticalAlign: "-6px", marginRight: "6px" },
+  avisoMedalla: { width: "22px", height: "38px", objectFit: "contain", verticalAlign: "-12px", marginRight: "8px" },
   aviso: {
     position: "fixed",
     left: "50%",

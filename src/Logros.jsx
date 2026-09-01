@@ -107,7 +107,7 @@ const s = {
   },
   titulo: { textAlign: "left" },
   tira: { display: "flex", gap: "2px", marginLeft: "auto" },
-  chispa: { width: "18px", height: "18px" },
+  chispa: { width: "13px", height: "22px", objectFit: "contain" },
   cuenta: { fontSize: "14px", fontWeight: 800, minWidth: "16px" },
   flecha: { fontSize: "11px", color: "#64748b" },
   cuerpo: { padding: "0 14px 14px" },
@@ -117,10 +117,10 @@ const s = {
   marca: { fontSize: "11px", color: "#4ade80", fontWeight: 700 },
   medallas: { display: "flex", gap: "6px" },
   hueco: { display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flex: 1 },
-  medalla: { width: "30px", height: "30px" },
+  medalla: { width: "26px", height: "44px", objectFit: "contain" },
   // Sin conseguir: apagadas, pero se ven, que es lo que da ganas de ir a por ellas.
   apagada: { filter: "grayscale(1) brightness(0.45)", opacity: 0.65 },
-  casi: { width: "22px", height: "22px" },
+  casi: { width: "16px", height: "28px" },
   kg: { fontSize: "10px", color: "#64748b", fontWeight: 700 },
   proxima: {
     display: "flex",
