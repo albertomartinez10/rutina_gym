@@ -6,7 +6,7 @@ import {
   hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
-import { fraseDelDia, celebracion, finDeDia } from "./frases.js";
+import { fraseDelDia, celebracion, finDeDia, fraseLogro } from "./frases.js";
 import {
   traerHistorico, insertarRegistro, borrarRegistro,
   traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
@@ -60,7 +60,7 @@ export default function App() {
   // El aviso se va solo a los 3s.
   useEffect(() => {
     if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 3000);
+    const t = setTimeout(() => setAviso(null), aviso.frase ? 5000 : 3000);
     return () => clearTimeout(t);
   }, [aviso]);
 
@@ -106,7 +106,11 @@ export default function App() {
     const antes = mejorPeso(historico[nombre] || []);
     const logro = logroNuevo(nombre, antes, Number(peso), perfil);
     if (logro) {
-      setAviso({ texto: `¡${logro.nombre} en ${nombre}!`, medalla: logro.medalla });
+      setAviso({
+        texto: `¡${logro.nombre} en ${nombre}!`,
+        frase: fraseLogro(logro.nivel),
+        medalla: logro.medalla,
+      });
       vibrar([100, 60, 100, 60, 200]);
     } else if (record) {
       setAviso({ texto: `🏆 ¡Récord personal en ${nombre}: ${peso} kg!` });
@@ -235,13 +239,12 @@ export default function App() {
           >
             <span style={s.tabDia}>{d.dia}</span>
             <span style={s.tabGrupo}>{d.corto ?? d.grupo.split(" · ")[0]}</span>
+            {d.grupo.includes(" · ") && (
+              <span className="coletilla" style={s.tabColetilla}>{d.grupo.split(" · ")[1]}</span>
+            )}
           </button>
         ))}
       </nav>
-
-      {rutina[diaActivo].grupo.includes(" · ") && (
-        <p style={s.coletilla}>{rutina[diaActivo].grupo.split(" · ")[1]}</p>
-      )}
 
       <div style={s.progresoCaja}>
         <div style={s.progresoTexto}>
@@ -312,7 +315,10 @@ export default function App() {
       {aviso && (
         <div style={s.aviso}>
           {aviso.medalla && <img src={aviso.medalla} alt="" className="medallon" style={s.avisoMedalla} />}
-          {aviso.texto ?? aviso}
+          <span>
+            {aviso.texto ?? aviso}
+            {aviso.frase && <span style={s.avisoFrase}>{aviso.frase}</span>}
+          </span>
         </div>
       )}
       <Descanso />
@@ -556,8 +562,8 @@ const s = {
   },
   tab: {
     flex: "1 0 auto",
-    minWidth: "94px",
-    maxWidth: "120px",
+    minWidth: "104px",
+    maxWidth: "136px",
     display: "flex",
     flexDirection: "column",
     gap: "2px",
@@ -577,7 +583,13 @@ const s = {
   },
   tabDia: { fontSize: "13px", fontWeight: 700 },
   tabGrupo: { fontSize: "11px", lineHeight: 1.25 },
-  coletilla: { margin: "-10px 0 14px", fontSize: "12px", color: "#94a3b8", fontStyle: "italic" },
+  tabColetilla: {
+    fontSize: "9px",
+    lineHeight: 1.2,
+    color: "#64748b",
+    fontStyle: "italic",
+    fontWeight: 400,
+  },
   sticky: {
     paddingTop: "10px",
     marginBottom: "18px",
@@ -870,12 +882,15 @@ const s = {
     fontSize: "12px",
     color: "#fbbf24",
   },
+  avisoFrase: { display: "block", fontSize: "12px", fontWeight: 500, color: "#94a3b8", marginTop: "2px" },
   avisoMedalla: { width: "22px", height: "38px", objectFit: "contain", verticalAlign: "-12px", marginRight: "8px" },
   aviso: {
     position: "fixed",
     left: "50%",
     bottom: "calc(78px + env(safe-area-inset-bottom))",
     transform: "translateX(-50%)",
+    display: "flex",
+    alignItems: "center",
     width: "max-content",
     maxWidth: "90vw",
     background: "linear-gradient(135deg,#1e293b,#312e81)",

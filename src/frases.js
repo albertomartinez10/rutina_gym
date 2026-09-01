@@ -56,3 +56,44 @@ export const finDeDia = () =>
     "Rutina cerrada. Un ladrillo más en la bestia que estás construyendo 🧱",
     "¡Terminado! Esto es lo que te hace más fuerte cada semana 🏆",
   ]);
+
+// Una frase por nivel de medalla: cuanto más alta, más se te sube a la cabeza.
+const porNivel = [
+  [
+    "Primera medalla en el bolsillo. Esto ya es tuyo 🌱",
+    "Ya no estás empezando: estás dentro",
+    "La primera es la que más cuesta. Y ya la tienes",
+  ],
+  [
+    "Segunda medalla. Esto ya no es casualidad 💫",
+    "Estás cogiendo ritmo y se nota",
+    "Dos de cinco. La cosa va en serio",
+  ],
+  [
+    "¡Oro! Ya mueves pesos que antes ni mirabas 🥇",
+    "Esto ya es nivel de gente que sabe lo que hace",
+    "Medio medallero fuera. Estás volando",
+  ],
+  [
+    "Bestia desatada. Cuidado con los espejos 🦾",
+    "Ya das un poquito de miedo, y está bien",
+    "Cuarta medalla: pocos llegan aquí",
+  ],
+  [
+    "LEYENDA. Poco más se puede decir 🏆",
+    "Has reventado la escala. A por otra cosa 👑",
+    "Nivel máximo. Que tiemble el gimnasio",
+  ],
+];
+
+export const fraseLogro = (nivel) => azar(porNivel[Math.min(Math.max(nivel, 0), porNivel.length - 1)]);
+
+// Frase de cabecera del medallero según lo lleno que esté.
+export const fraseMedallero = (conseguidas, total) => {
+  if (total === 0 || conseguidas === 0) return "Tu medallero está esperando. Apunta un peso y empieza 🌱";
+  const parte = conseguidas / total;
+  if (parte === 1) return "Medallero completo. Esto ya es de otro nivel 🏆";
+  if (parte >= 0.66) return "Casi lo tienes entero. No aflojes ahora 🔥";
+  if (parte >= 0.33) return "Vas por la mitad y subiendo 💪";
+  return "Ya has empezado a llenarlo. Sigue así ✨";
+};

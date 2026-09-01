@@ -1,4 +1,5 @@
 import { NIVELES, logros, siguienteMeta, nivelDe, mejorPeso, escala } from "./logros.js";
+import { fraseMedallero } from "./frases.js";
 
 export default function Logros({ historico, perfil, ejercicios, color }) {
   // Pantalla propia: siempre desplegado, sin cabecera plegable.
@@ -27,6 +28,8 @@ export default function Logros({ historico, perfil, ejercicios, color }) {
         </span>
         <span style={{ ...s.cuenta, color }}>{conseguidos.length}</span>
       </div>
+
+      <p style={s.animo}>{fraseMedallero(conseguidos.length, ejercicios.length)}</p>
 
       {abierto && (
         <div style={s.cuerpo}>
@@ -109,6 +112,7 @@ const s = {
   chispa: { width: "13px", height: "22px", objectFit: "contain" },
   cuenta: { fontSize: "14px", fontWeight: 800, minWidth: "16px" },
   flecha: { fontSize: "11px", color: "#64748b" },
+  animo: { margin: "0 14px 12px", fontSize: "13px", color: "#93c5fd", fontStyle: "italic" },
   cuerpo: { padding: "0 14px 14px" },
   fila: { padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.06)" },
   info: { display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" },
