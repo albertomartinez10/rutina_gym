@@ -38,6 +38,27 @@ const ESCALAS = {
     Prensa: [100, 140, 180, 220, 280],
     "Extensión de cuádriceps": [40, 55, 70, 85, 100],
     Zancadas: [12, 18, 24, 32, 40],
+    // Espalda y bíceps
+    "Remo gironda": [40, 55, 70, 85, 100],
+    Pullover: [12, 18, 24, 32, 40],
+    "Face pull": [15, 22, 30, 40, 50],
+    "Remo alto": [20, 30, 40, 50, 60],
+    "Curl martillo": [10, 14, 18, 22, 28],
+    "Curl de bíceps": [8, 12, 16, 20, 26],
+    // Pecho, hombro y tríceps
+    "Press inclinado con mancuerna": [16, 22, 28, 34, 42],
+    "Press plano": [50, 70, 90, 110, 140],
+    "Cruce de polea": [10, 15, 20, 27, 35],
+    "Press inclinado en máquina": [40, 55, 70, 90, 110],
+    "Elevaciones laterales con mancuerna": [6, 8, 10, 14, 18],
+    "Press militar": [30, 40, 50, 65, 80],
+    "Elevaciones laterales en máquina": [15, 22, 30, 40, 50],
+    "Tríceps con cuerda": [20, 28, 36, 45, 55],
+    "Tríceps tras nuca": [15, 22, 30, 38, 48],
+    // Pierna
+    "Sentadilla pendular": [50, 70, 90, 115, 145],
+    "Curl femoral": [30, 40, 55, 70, 85],
+    "Aducción de cadera": [30, 45, 60, 75, 90],
     _: [20, 40, 60, 80, 100],
   },
 };

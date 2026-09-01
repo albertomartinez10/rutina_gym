@@ -17,40 +17,8 @@ import Logros from "./Logros.jsx";
 import Calendario from "./Calendario.jsx";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
+import { rutinaDe } from "./rutinas.js";
 import Grafica from "./Grafica.jsx";
-
-const rutina = [
-  {
-    dia: "Día 1",
-    grupo: "Glúteos 🍑 · para tener más culo, si es que se puede",
-    ejercicios: [
-      { nombre: "Hip Thrust", series: "4", reps: "10-12", imagen: "https://gymvisual.com/img/p/5/7/6/1/5761.gif" },
-      { nombre: "Patada de glúteo en polea", series: "3", reps: "12-15", imagen: "https://www.thingys.com.ar/gymapps/tutorial/gluteos_polea2.gif" },
-      { nombre: "Peso muerto rumano", series: "3", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Romanian-Deadlift.gif" },
-      { nombre: "Abducción de cadera", series: "3", reps: "15", imagen: "https://gymvisual.com/img/p/1/2/7/1/4/12714.gif" },
-    ],
-  },
-  {
-    dia: "Día 2",
-    grupo: "Torso 💪 · para ponerte mamadísima",
-    ejercicios: [
-      { nombre: "Jalón al pecho", series: "4", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif" },
-      { nombre: "Remo en polea", series: "3", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Cable-Row.gif" },
-      { nombre: "Press hombro mancuernas", series: "3", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Shoulder-Press.gif" },
-      { nombre: "Elevaciones laterales", series: "3", reps: "12-15", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif" },
-    ],
-  },
-  {
-    dia: "Día 3",
-    grupo: "Cuádriceps 🦵 · para partirlo en los pogos",
-    ejercicios: [
-      { nombre: "Sentadilla", series: "4", reps: "8-10", imagen: "https://www.thingys.com.ar/gymapps/tutorial/hack_new.gif" },
-      { nombre: "Prensa", series: "4", reps: "10-12", imagen: "https://fitcron.com/wp-content/uploads/2021/04/07401301-Sled-45%C2%B0-Leg-Wide-Press_Thighs_720.gif" },
-      { nombre: "Extensión de cuádriceps", series: "3", reps: "12-15", imagen: "https://i.pinimg.com/originals/33/24/5f/33245f9b08426eb8d0860f9261111283.gif" },
-      { nombre: "Zancadas", series: "3", reps: "10-12", imagen: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lunge.gif" },
-    ],
-  },
-];
 
 export default function App() {
   const [perfil, setPerfil] = useState(cargarPerfil);
@@ -100,6 +68,7 @@ export default function App() {
   const cambiarPerfil = (id) => {
     guardarPerfil(id);
     setPerfil(id);
+    setDiaActivo(0);
     setHistorico(cargar(id));
     setHechos(cargarHechos(id));
     setSeries(cargarSeries(id));
@@ -157,6 +126,7 @@ export default function App() {
   const misEntrenos = useMemo(() => entrenos.filter((e) => e.perfil === perfil), [entrenos, perfil]);
   const diasSeguidos = useMemo(() => racha(diasEntrenados(historico, misEntrenos)), [historico, misEntrenos]);
 
+  const rutina = rutinaDe(perfil);
   const volumenHoy = volumenDia(historico, hoy());
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
@@ -198,7 +168,11 @@ export default function App() {
 
   const fraseFinal = useMemo(() => finDeDia(), [terminado, diaActivo]);
   const quien = datosPerfil(perfil);
-  const todosLosEjercicios = [0, 1, 2].flatMap((d) => rutinaFinal(rutina, personalizados, d));
+  const todosLosEjercicios = Object.values(
+    rutinaDe(perfil)
+      .flatMap((_, d) => rutinaFinal(rutinaDe(perfil), personalizados, d))
+      .reduce((acc, e) => ({ ...acc, [e.nombre]: e }), {}),
+  );
 
   return (
     <div style={s.page}>
@@ -569,9 +543,16 @@ const s = {
     border: "3px solid #0b1020",
   },
   titulo: { fontSize: "26px", margin: "14px 0 0", fontWeight: 900, letterSpacing: "-0.5px" },
-  tabs: { display: "flex", gap: "8px", marginBottom: "20px" },
+  tabs: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "20px",
+    overflowX: "auto",
+    paddingBottom: "4px",
+  },
   tab: {
-    flex: 1,
+    flex: "1 0 auto",
+    minWidth: "96px",
     display: "flex",
     flexDirection: "column",
     gap: "2px",
