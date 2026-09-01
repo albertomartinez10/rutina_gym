@@ -136,6 +136,14 @@ export default function App() {
     empezarSesion();
     const fecha = hoy();
     if (entrenos.some((e) => e.fecha === fecha && e.perfil === perfil)) return;
+
+    // Primer gesto del día (marcar, tocar serie o apuntar peso): un único aviso al otro.
+    avisar(
+      perfil,
+      `${datosPerfil(perfil).emoji} ${datosPerfil(perfil).nombre} está en el gym`,
+      `Ha empezado ${rutinaDe(perfil)[diaActivo].corto}. ¿Y tú? 👀`,
+    );
+
     try {
       const fila = await guardarEntreno(perfil, fecha, null, null);
       setEntrenos((x) => [fila, ...x]);
@@ -358,17 +366,7 @@ export default function App() {
             hecho={hechos.includes(ej.nombre)}
             marcar={() => {
               vibrar(15);
-              if (!hechos.includes(ej.nombre)) {
-                marcarHoyEntrenado();
-                const van = hechos.length + 1;
-                avisar(
-                  perfil,
-                  `${quien.emoji} ${quien.nombre} está en el gym`,
-                  van === ejercicios.length
-                    ? `¡Ha terminado ${rutina[diaActivo].corto}! 🎉`
-                    : `Acaba de hacer ${ej.nombre} · ${van} de ${ejercicios.length}`,
-                );
-              }
+              if (!hechos.includes(ej.nombre)) marcarHoyEntrenado();
               setHechos((n) => alternar(n, ej.nombre));
             }}
             abierto={abierto === ej.nombre}
