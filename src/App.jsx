@@ -4,17 +4,21 @@ import {
   cargarHechos, guardarHechos, alternar,
   cargarSeries, guardarSeries, marcarSerie, racha, progresion, rutinaFinal,
   hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
+  cargarCola, guardarCola, encolar, desencolar, fusionar,
+  cargarSesion, guardarSesion, duracion, recordsDelDia,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia, fraseLogro } from "./frases.js";
 import {
   traerHistorico, insertarRegistro, borrarRegistro,
   traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
-  traerEntrenos, guardarEntreno,
+  traerEntrenos, guardarEntreno, traerTodo,
 } from "./supabase.js";
 import Descanso from "./Descanso.jsx";
 import Logros from "./Logros.jsx";
 import Calendario from "./Calendario.jsx";
+import Pique from "./Pique.jsx";
+import { porPerfil, resumenDe } from "./pique.js";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import { rutinaDe } from "./rutinas.js";
@@ -29,6 +33,10 @@ export default function App() {
   const [series, setSeries] = useState(() => cargarSeries(cargarPerfil()));
   const [personalizados, setPersonalizados] = useState([]);
   const [entrenos, setEntrenos] = useState([]);
+  const [cola, setCola] = useState(cargarCola);
+  const [inicioSesion, setInicioSesion] = useState(() => cargarSesion(cargarPerfil()));
+  const [pedirDescanso, setPedirDescanso] = useState(0);
+  const [todos, setTodos] = useState({});
   const [editando, setEditando] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -39,13 +47,20 @@ export default function App() {
   useEffect(() => {
     let vivo = true;
     traerHistorico(perfil)
-      .then((datos) => vivo && (setHistorico(datos), setSinConexion(false)))
+      .then((datos) => {
+        if (!vivo) return;
+        setHistorico(fusionar(datos, cargarCola().filter((p) => p.perfil === perfil)));
+        setSinConexion(false);
+      })
       .catch(() => vivo && setSinConexion(true));
     traerPersonalizados(perfil)
       .then((p) => vivo && setPersonalizados(p))
       .catch(() => {});
     traerEntrenos()
       .then((e) => vivo && setEntrenos(e))
+      .catch(() => {});
+    traerTodo()
+      .then((filas) => vivo && setTodos(porPerfil(filas)))
       .catch(() => {});
     return () => {
       vivo = false;
@@ -54,6 +69,33 @@ export default function App() {
 
 
   useEffect(() => guardar(perfil, historico), [perfil, historico]);
+  useEffect(() => guardarCola(cola), [cola]);
+
+  // Reintenta subir lo que quedó pendiente en cuanto vuelve la cobertura.
+  useEffect(() => {
+    if (!cola.length) return;
+
+    const reintentar = async () => {
+      for (const p of cargarCola()) {
+        try {
+          const fila = await insertarRegistro(p.perfil, p.ejercicio, p.peso, p.reps, p.nota);
+          setCola((c) => desencolar(c, p));
+          setSinConexion(false);
+          // Cambia el registro provisional por el que ya tiene id del servidor.
+          setHistorico((h) => ({
+            ...h,
+            [p.ejercicio]: (h[p.ejercicio] || []).map((r) => (r.tmp === p.tmp ? { ...r, ...fila, tmp: undefined } : r)),
+          }));
+        } catch {
+          return; // sigue sin haber red: se queda para el próximo intento
+        }
+      }
+    };
+
+    reintentar();
+    window.addEventListener("online", reintentar);
+    return () => window.removeEventListener("online", reintentar);
+  }, [cola.length]);
   useEffect(() => guardarHechos(perfil, hechos), [perfil, hechos]);
   useEffect(() => guardarSeries(perfil, series), [perfil, series]);
 
@@ -72,11 +114,20 @@ export default function App() {
     setHistorico(cargar(id));
     setHechos(cargarHechos(id));
     setSeries(cargarSeries(id));
+    setInicioSesion(cargarSesion(id));
 
   };
 
   // Marcar un ejercicio o una serie ya cuenta como día de gimnasio: se apunta solo.
+  const empezarSesion = () => {
+    if (inicioSesion) return;
+    const ahora = Date.now();
+    guardarSesion(perfil, ahora);
+    setInicioSesion(ahora);
+  };
+
   const marcarHoyEntrenado = async () => {
+    empezarSesion();
     const fecha = hoy();
     if (entrenos.some((e) => e.fecha === fecha && e.perfil === perfil)) return;
     try {
@@ -96,6 +147,10 @@ export default function App() {
       extra = await insertarRegistro(perfil, nombre, peso, reps, nota);
       setSinConexion(false);
     } catch {
+      // Sin cobertura: a la cola, que se sube sola cuando vuelva.
+      const tmp = Date.now();
+      extra = { tmp };
+      setCola((c) => encolar(c, { perfil, ejercicio: nombre, peso, reps, nota, fecha: hoy(), tmp }));
       setSinConexion(true);
     }
     setHistorico((h) => apuntarEn(h, nombre, peso, reps, { nota, ...extra }));
@@ -132,6 +187,7 @@ export default function App() {
 
   const rutina = rutinaDe(perfil);
   const volumenHoy = volumenDia(historico, hoy());
+  const recordsHoy = recordsDelDia(historico, hoy());
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
 
@@ -201,6 +257,7 @@ export default function App() {
           ["rutina", "🏋️ Rutina"],
           ["medallas", "🏅 Medallas"],
           ["calendario", "📅 Calendario"],
+          ["pique", "🔥 Pique"],
         ].map(([id, texto]) => (
           <button
             key={id}
@@ -225,7 +282,12 @@ export default function App() {
         <p style={{ ...s.deQuien, color: quien.color }}>
           {quien.emoji} Estás en el perfil de {quien.nombre}
         </p>
-        {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
+        {sinConexion && (
+          <p style={s.offline}>
+            Sin conexión
+            {cola.length > 0 && ` · ${cola.length} ${cola.length === 1 ? "peso pendiente" : "pesos pendientes"} de subir`}
+          </p>
+        )}
       </header>
 
       {pantalla === "rutina" && (<>
@@ -285,7 +347,12 @@ export default function App() {
             tocarSerie={(i) => {
               vibrar(10);
               marcarHoyEntrenado();
-              setSeries((x) => marcarSerie(x, ej.nombre, i));
+              setSeries((x) => {
+                const nuevas = marcarSerie(x, ej.nombre, i);
+                // Al sumar una serie empieza el descanso; al desmarcar, no.
+                if ((nuevas[ej.nombre] || 0) > (x[ej.nombre] || 0)) setPedirDescanso(Date.now());
+                return nuevas;
+              });
             }}
             editando={editando}
             quitar={() => quitar(ej)}
@@ -297,8 +364,36 @@ export default function App() {
       </main>
       </>)}
 
+      {pantalla === "rutina" && terminado && (
+        <section style={s.resumen}>
+          <h2 style={s.resumenTitulo}>Resumen de hoy</h2>
+          <div style={s.resumenFilas}>
+            <span>Duración</span><strong>{duracion(inicioSesion) ?? "—"}</strong>
+            <span>Kilos movidos</span><strong>{volumenHoy.toLocaleString("es-ES")} kg</strong>
+            <span>Ejercicios</span><strong>{completados} de {ejercicios.length}</strong>
+          </div>
+          {recordsHoy.length > 0 && (
+            <p style={s.resumenRecords}>
+              🏆 Récord en {recordsHoy.map((r) => `${r.ejercicio} (${r.peso} kg)`).join(", ")}
+            </p>
+          )}
+        </section>
+      )}
+
       {pantalla === "medallas" && (
         <Logros historico={historico} perfil={perfil} ejercicios={todosLosEjercicios} color={quien.color} />
+      )}
+
+      {pantalla === "pique" && (
+        <Pique
+          mes={new Date().getMonth()}
+          datos={Object.fromEntries(
+            PERFILES.map((p) => [
+              p.id,
+              resumenDe(todos[p.id] || {}, entrenos, p.id, new Date().getFullYear(), new Date().getMonth()),
+            ]),
+          )}
+        />
       )}
 
       {pantalla === "calendario" && (
@@ -321,17 +416,17 @@ export default function App() {
           </span>
         </div>
       )}
-      <Descanso />
+      <Descanso arrancar={pedirDescanso} />
     </div>
   );
 }
 
 function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
-  const [peso, setPeso] = useState("");
-  const [reps, setReps] = useState("");
+  const ultimo = registros[0];
+  const [peso, setPeso] = useState(ultimo?.peso ?? "");
+  const [reps, setReps] = useState(ultimo?.reps ?? "");
   const [ampliada, setAmpliada] = useState(false);
   const [nota, setNota] = useState("");
-  const ultimo = registros[0];
   const estimado = mejorEstimado(registros);
 
   const enviar = (e) => {
@@ -340,8 +435,6 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
     // Cierra el teclado del móvil: si no, tapa el aviso de confirmación.
     e.currentTarget.querySelector("input")?.blur();
     apuntar(ej.nombre, peso, reps, nota);
-    setPeso("");
-    setReps("");
     setNota("");
   };
 
@@ -415,16 +508,34 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
       </div>
 
       <form onSubmit={enviar} style={s.form}>
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.5"
-          placeholder="kg"
-          enterKeyHint="done"
-          value={peso}
-          onChange={(e) => setPeso(e.target.value)}
-          style={s.input}
-        />
+        <div style={s.pesoCaja}>
+          <button
+            type="button"
+            onClick={() => setPeso((p) => String(Math.max(0, (Number(p) || 0) - 2.5)))}
+            style={s.paso}
+            aria-label="Quitar 2,5 kg"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.5"
+            placeholder="kg"
+            enterKeyHint="done"
+            value={peso}
+            onChange={(e) => setPeso(e.target.value)}
+            style={{ ...s.input, textAlign: "center" }}
+          />
+          <button
+            type="button"
+            onClick={() => setPeso((p) => String((Number(p) || 0) + 2.5))}
+            style={s.paso}
+            aria-label="Añadir 2,5 kg"
+          >
+            +
+          </button>
+        </div>
         <input
           type="number"
           inputMode="numeric"
@@ -594,15 +705,16 @@ const s = {
     paddingTop: "10px",
     marginBottom: "18px",
   },
-  menu: { display: "flex", gap: "6px", marginBottom: "16px" },
+  menu: { display: "flex", gap: "5px", marginBottom: "16px" },
   menuBoton: {
     flex: 1,
-    padding: "10px 4px",
+    minWidth: 0,
+    padding: "10px 2px",
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(255,255,255,0.03)",
     color: "#94a3b8",
-    fontSize: "13px",
+    fontSize: "12px",
     fontWeight: 700,
     cursor: "pointer",
   },
@@ -639,6 +751,22 @@ const s = {
   },
   medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
   volumen: { margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" },
+  resumen: {
+    marginTop: "18px",
+    padding: "16px",
+    borderRadius: "20px",
+    background: "rgba(74,222,128,0.08)",
+    border: "1px solid rgba(74,222,128,0.3)",
+  },
+  resumenTitulo: { margin: "0 0 12px", fontSize: "16px", color: "#f8fafc" },
+  resumenFilas: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    gap: "8px 12px",
+    fontSize: "14px",
+    color: "#94a3b8",
+  },
+  resumenRecords: { margin: "12px 0 0", fontSize: "13px", color: "#fbbf24", fontWeight: 700 },
   siguienteMedalla: {
     display: "flex",
     alignItems: "center",
@@ -757,6 +885,18 @@ const s = {
     fontWeight: 600,
   },
   form: { display: "flex", flexWrap: "wrap", gap: "8px" },
+  pesoCaja: { display: "flex", alignItems: "stretch", gap: "6px", flex: "1 1 190px", minWidth: 0 },
+  paso: {
+    width: "44px",
+    flexShrink: 0,
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#e2e8f0",
+    fontSize: "20px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
   input: {
     minWidth: "72px",
     flex: 1,

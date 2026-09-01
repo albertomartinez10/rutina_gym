@@ -189,3 +189,69 @@ export const unaRepeticionMaxima = (peso, reps) => {
 // El mejor 1RM estimado del histórico de un ejercicio.
 export const mejorEstimado = (registros) =>
   registros.reduce((max, r) => Math.max(max, unaRepeticionMaxima(r.peso, r.reps) || 0), 0) || null;
+
+export const COLA = "gymbro-pendientes";
+
+// Lo que no se ha podido subir por falta de cobertura, esperando a que vuelva.
+export const cargarCola = () => {
+  try {
+    return JSON.parse(localStorage.getItem(COLA)) || [];
+  } catch {
+    return [];
+  }
+};
+
+export const guardarCola = (cola) => localStorage.setItem(COLA, JSON.stringify(cola));
+
+export const encolar = (cola, registro) => [...cola, registro];
+
+export const desencolar = (cola, registro) =>
+  cola.filter((p) => !(p.perfil === registro.perfil && p.tmp === registro.tmp));
+
+// Mezcla lo que vino del servidor con lo que aún está pendiente de subir,
+// para que un peso apuntado sin cobertura no desaparezca al recargar.
+export const fusionar = (remoto, pendientes) =>
+  pendientes.reduce(
+    (acc, p) => ({
+      ...acc,
+      [p.ejercicio]: [
+        { fecha: p.fecha, peso: p.peso, reps: p.reps, nota: p.nota, tmp: p.tmp },
+        ...(acc[p.ejercicio] || []),
+      ],
+    }),
+    { ...remoto },
+  );
+
+export const SESION = "gymbro-sesion";
+
+// Hora a la que empezó el entreno de hoy, para saber cuánto ha durado.
+export const cargarSesion = (perfil) => {
+  try {
+    const d = JSON.parse(localStorage.getItem(`${SESION}-${perfil}`));
+    return d && d.fecha === hoy() ? d.inicio : null;
+  } catch {
+    return null;
+  }
+};
+
+export const guardarSesion = (perfil, inicio) =>
+  localStorage.setItem(`${SESION}-${perfil}`, JSON.stringify({ fecha: hoy(), inicio }));
+
+export const duracion = (inicio, ahora = Date.now()) => {
+  if (!inicio) return null;
+  const minutos = Math.max(0, Math.round((ahora - inicio) / 60000));
+  return minutos < 60 ? `${minutos} min` : `${Math.floor(minutos / 60)} h ${minutos % 60} min`;
+};
+
+// Los ejercicios en los que hoy has batido tu récord anterior.
+export const recordsDelDia = (historico, fecha) =>
+  Object.entries(historico)
+    .map(([ejercicio, regs]) => {
+      const deHoy = regs.filter((r) => r.fecha === fecha);
+      const antiguos = regs.filter((r) => r.fecha !== fecha);
+      if (!deHoy.length || !antiguos.length) return null;
+      const mejorHoy = Math.max(...deHoy.map((r) => Number(r.peso) || 0));
+      const mejorAntes = Math.max(...antiguos.map((r) => Number(r.peso) || 0));
+      return mejorHoy > mejorAntes ? { ejercicio, peso: mejorHoy, anterior: mejorAntes } : null;
+    })
+    .filter(Boolean);

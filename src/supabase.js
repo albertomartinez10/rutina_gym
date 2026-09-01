@@ -137,3 +137,13 @@ export const borrarEntreno = async (id, ruta) => {
   const { error } = await supabase.from("entrenos").delete().eq("id", id);
   if (error) throw error;
 };
+
+// Todos los registros de los dos perfiles, para el marcador comparativo.
+export const traerTodo = async () => {
+  const { data, error } = await supabase
+    .from("registros")
+    .select("perfil, ejercicio, peso, reps, fecha")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+};

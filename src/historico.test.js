@@ -5,7 +5,9 @@ import {
   cargar, guardar, apuntar, borrar, hoy, fechaCorta, KEY,
   delta, alternar, cargarHechos, guardarHechos, HECHOS,
   marcarSerie, racha, progresion, rutinaFinal, semanasDelMes, diasEntrenados,
-  columnasDelAno, inicioDeMeses, volumen, volumenDia, esRecord, unaRepeticionMaxima, mejorEstimado,
+  columnasDelAno, inicioDeMeses, cargarCola, guardarCola, encolar, desencolar, fusionar,
+  volumen, volumenDia, esRecord, unaRepeticionMaxima, mejorEstimado,
+  SESION, cargarSesion, guardarSesion, duracion, recordsDelDia,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -255,4 +257,68 @@ test("1RM por Epley", () => {
 test("mejorEstimado coge el mayor 1RM del historico", () => {
   assert.equal(mejorEstimado([{ peso: "60", reps: "10" }, { peso: "70", reps: "5" }]), 81.7);
   assert.equal(mejorEstimado([]), null);
+});
+
+test("la cola guarda y recupera lo que no se pudo subir", () => {
+  fakeStorage();
+  const reg = { perfil: "nuria", ejercicio: "Prensa", peso: "80", reps: "10", fecha: hoy(), tmp: 1 };
+  guardarCola(encolar(cargarCola(), reg));
+  assert.equal(cargarCola().length, 1);
+  assert.equal(cargarCola()[0].ejercicio, "Prensa");
+});
+
+test("desencolar quita solo el registro subido", () => {
+  const a = { perfil: "nuria", tmp: 1 };
+  const b = { perfil: "nuria", tmp: 2 };
+  assert.deepEqual(desencolar([a, b], a), [b]);
+});
+
+test("desencolar no confunde perfiles con el mismo tmp", () => {
+  const a = { perfil: "nuria", tmp: 1 };
+  const b = { perfil: "alberto", tmp: 1 };
+  assert.deepEqual(desencolar([a, b], a), [b]);
+});
+
+test("fusionar no pierde lo pendiente al llegar los datos del servidor", () => {
+  const remoto = { Prensa: [{ peso: "100", fecha: "2026-08-30" }] };
+  const pendientes = [{ ejercicio: "Prensa", peso: "110", reps: "8", fecha: "2026-09-01", tmp: 7 }];
+  const r = fusionar(remoto, pendientes);
+  assert.equal(r["Prensa"].length, 2);
+  assert.equal(r["Prensa"][0].peso, "110", "lo pendiente va primero, es lo más reciente");
+});
+
+test("fusionar añade ejercicios que el servidor no conoce", () => {
+  const r = fusionar({}, [{ ejercicio: "Gemelos", peso: "40", fecha: "2026-09-01", tmp: 1 }]);
+  assert.equal(r["Gemelos"].length, 1);
+});
+
+test("sin pendientes, fusionar deja el remoto igual", () => {
+  const remoto = { Prensa: [{ peso: "100" }] };
+  assert.deepEqual(fusionar(remoto, []), remoto);
+});
+
+test("duracion se lee en minutos y en horas", () => {
+  const t0 = 1_000_000;
+  assert.equal(duracion(t0, t0 + 25 * 60000), "25 min");
+  assert.equal(duracion(t0, t0 + 95 * 60000), "1 h 35 min");
+  assert.equal(duracion(null), null);
+});
+
+test("la sesion caduca al cambiar de dia", () => {
+  fakeStorage();
+  localStorage.setItem(`${SESION}-nuria`, JSON.stringify({ fecha: "2020-01-01", inicio: 123 }));
+  assert.equal(cargarSesion("nuria"), null);
+  guardarSesion("nuria", 456);
+  assert.equal(cargarSesion("nuria"), 456);
+});
+
+test("recordsDelDia solo cuenta lo que supera dias anteriores", () => {
+  const h = {
+    Prensa: [{ peso: "110", fecha: "2026-09-01" }, { peso: "100", fecha: "2026-08-20" }],
+    Sentadilla: [{ peso: "50", fecha: "2026-09-01" }, { peso: "60", fecha: "2026-08-20" }],
+    Nuevo: [{ peso: "30", fecha: "2026-09-01" }],
+  };
+  const r = recordsDelDia(h, "2026-09-01");
+  assert.deepEqual(r.map((x) => x.ejercicio), ["Prensa"]);
+  assert.equal(r[0].anterior, 100);
 });

@@ -20,7 +20,7 @@ const pitar = () => {
   }
 };
 
-export default function Descanso() {
+export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
   const [duracion, setDuracion] = useState(null);
   const [restante, setRestante] = useState(null);
   const fin = useRef(null);
@@ -43,6 +43,13 @@ export default function Descanso() {
     }, 250);
     return () => clearInterval(id);
   }, [duracion]);
+
+  // Al marcar una serie, el descanso empieza solo.
+  useEffect(() => {
+    if (!senal) return;
+    setDuracion(porDefecto);
+    setRestante(porDefecto);
+  }, [senal, porDefecto]);
 
   const arrancar = (segundos) => {
     setDuracion(segundos);
