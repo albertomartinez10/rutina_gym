@@ -5,7 +5,7 @@ import {
   cargar, guardar, apuntar, borrar, hoy, fechaCorta, KEY,
   delta, alternar, cargarHechos, guardarHechos, HECHOS,
   marcarSerie, racha, progresion, rutinaFinal, semanasDelMes, diasEntrenados,
-  columnasDelAno, inicioDeMeses,
+  columnasDelAno, inicioDeMeses, volumen, volumenDia, esRecord, unaRepeticionMaxima, mejorEstimado,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -218,4 +218,41 @@ test("inicioDeMeses situa los doce meses", () => {
   const m = inicioDeMeses(c);
   assert.equal(Object.keys(m).length, 12);
   assert.ok(m[0] < m[11]);
+});
+
+test("volumen multiplica peso por reps", () => {
+  const regs = [{ peso: "50", reps: "10", fecha: "2026-09-01" }, { peso: "40", reps: "8", fecha: "2026-08-31" }];
+  assert.equal(volumen(regs), 820);
+  assert.equal(volumen(regs, "2026-09-01"), 500);
+});
+
+test("volumen ignora registros sin reps", () => {
+  assert.equal(volumen([{ peso: "50", reps: "" }]), 0);
+});
+
+test("volumenDia suma todos los ejercicios de ese dia", () => {
+  const h = {
+    Prensa: [{ peso: "100", reps: "10", fecha: "2026-09-01" }],
+    Sentadilla: [{ peso: "50", reps: "10", fecha: "2026-09-01" }, { peso: "50", reps: "10", fecha: "2026-08-01" }],
+  };
+  assert.equal(volumenDia(h, "2026-09-01"), 1500);
+});
+
+test("esRecord solo si supera todo lo anterior", () => {
+  const regs = [{ peso: "60" }, { peso: "80" }];
+  assert.equal(esRecord(regs, "85"), true);
+  assert.equal(esRecord(regs, "80"), false);
+  assert.equal(esRecord([], "20"), false, "el primer registro no es un record");
+});
+
+test("1RM por Epley", () => {
+  assert.equal(unaRepeticionMaxima(100, 1), 103.3);
+  assert.equal(unaRepeticionMaxima(60, 10), 80);
+  assert.equal(unaRepeticionMaxima(60, 0), null);
+  assert.equal(unaRepeticionMaxima("", 10), null);
+});
+
+test("mejorEstimado coge el mayor 1RM del historico", () => {
+  assert.equal(mejorEstimado([{ peso: "60", reps: "10" }, { peso: "70", reps: "5" }]), 81.7);
+  assert.equal(mejorEstimado([]), null);
 });

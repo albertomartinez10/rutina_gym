@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { semanasDelMes, diasEntrenados, hoy, fechaCorta } from "./historico.js";
-import { guardarEntreno, borrarEntreno, urlFoto } from "./supabase.js";
+import { guardarEntreno, borrarEntreno, urlFoto, reaccionar, quitarReaccion } from "./supabase.js";
+import { comprimir } from "./foto.js";
+import { datosPerfil } from "./perfiles.js";
 import Ano from "./Ano.jsx";
 
 const MESES = [
@@ -8,6 +10,7 @@ const MESES = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
+const EMOJIS = ["❤️", "🔥", "💪", "😮"];
 
 export default function Calendario({ historico, entrenos, setEntrenos, perfil, color, avisar }) {
   const ahora = new Date();
@@ -16,8 +19,9 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
   const [dia, setDia] = useState(hoy());
   const [subiendo, setSubiendo] = useState(false);
 
-  const marcados = diasEntrenados(historico, entrenos);
-  const delDia = entrenos.filter((e) => e.fecha === dia);
+  const mios = entrenos.filter((e) => e.perfil === perfil);
+  const marcados = diasEntrenados(historico, mios);
+  const delDia = entrenos.filter((e) => e.fecha === dia && e.foto);
   const totalMes = [...marcados].filter((f) => f.startsWith(`${ano}-${String(mes + 1).padStart(2, "0")}`)).length;
 
   const irA = (fecha) => {
@@ -39,13 +43,47 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
 
     setSubiendo(true);
     try {
-      const fila = await guardarEntreno(perfil, dia, archivo, null);
-      setEntrenos((x) => [fila, ...x]);
+      const fila = await guardarEntreno(perfil, dia, await comprimir(archivo), null);
+      setEntrenos((x) => [{ ...fila, reacciones: [] }, ...x]);
       avisar?.("Foto guardada 📸");
     } catch {
       avisar?.("No se ha podido subir la foto");
     }
     setSubiendo(false);
+  };
+
+  const alternarReaccion = async (entreno, emoji) => {
+    const mia = (entreno.reacciones || []).find((r) => r.perfil === perfil && r.emoji === emoji);
+    // Optimista: la reacción se ve al instante y luego se confirma.
+    setEntrenos((x) =>
+      x.map((e) =>
+        e.id !== entreno.id
+          ? e
+          : {
+              ...e,
+              reacciones: mia
+                ? e.reacciones.filter((r) => r.id !== mia.id)
+                : [...(e.reacciones || []), { id: `tmp-${emoji}`, perfil, emoji }],
+            },
+      ),
+    );
+
+    try {
+      if (mia) {
+        await quitarReaccion(mia.id);
+      } else {
+        const nueva = await reaccionar(entreno.id, perfil, emoji);
+        setEntrenos((x) =>
+          x.map((e) =>
+            e.id !== entreno.id
+              ? e
+              : { ...e, reacciones: e.reacciones.map((r) => (r.id === `tmp-${emoji}` ? nueva : r)) },
+          ),
+        );
+      }
+    } catch {
+      avisar?.("No se ha podido guardar la reacción");
+    }
   };
 
   const quitar = async (entreno) => {
@@ -118,12 +156,34 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
         {delDia.length === 0 && <p style={s.vacio}>Sin fotos de este día todavía</p>}
 
         <div style={s.galeria}>
-          {delDia.filter((e) => e.foto).map((e) => (
-            <figure key={e.id} style={s.marco}>
-              <img src={urlFoto(e.foto)} alt={`Entreno del ${e.fecha}`} loading="lazy" style={s.foto} />
-              <button onClick={() => quitar(e)} style={s.borrar} aria-label="Borrar foto">✕</button>
-            </figure>
-          ))}
+          {delDia.map((e) => {
+            const suyo = datosPerfil(e.perfil);
+            return (
+              <figure key={e.id} style={s.marco}>
+                <img src={urlFoto(e.foto)} alt={`Entreno de ${suyo.nombre}`} loading="lazy" style={s.foto} />
+                <span style={{ ...s.autor, color: suyo.color }}>{suyo.emoji} {suyo.nombre}</span>
+                {e.perfil === perfil && (
+                  <button onClick={() => quitar(e)} style={s.borrar} aria-label="Borrar foto">✕</button>
+                )}
+                <div style={s.reacciones}>
+                  {EMOJIS.map((emoji) => {
+                    const cuantas = (e.reacciones || []).filter((r) => r.emoji === emoji);
+                    const mia = cuantas.some((r) => r.perfil === perfil);
+                    return (
+                      <button
+                        key={emoji}
+                        onClick={() => alternarReaccion(e, emoji)}
+                        style={{ ...s.reaccion, ...(mia ? s.reaccionMia : null) }}
+                        aria-pressed={mia}
+                      >
+                        {emoji}{cuantas.length > 0 && <span style={s.cuantas}>{cuantas.length}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </figure>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -178,6 +238,28 @@ const s = {
   galeria: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px", marginTop: "12px" },
   marco: { position: "relative", margin: 0 },
   foto: { width: "100%", aspectRatio: "3 / 4", objectFit: "cover", borderRadius: "14px", display: "block" },
+  autor: {
+    position: "absolute",
+    top: "6px",
+    left: "6px",
+    padding: "3px 8px",
+    borderRadius: "99px",
+    background: "rgba(0,0,0,0.55)",
+    fontSize: "11px",
+    fontWeight: 700,
+  },
+  reacciones: { display: "flex", gap: "4px", marginTop: "6px" },
+  reaccion: {
+    flex: 1,
+    padding: "6px 2px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(255,255,255,0.04)",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
+  reaccionMia: { background: "rgba(96,165,250,0.25)", borderColor: "rgba(96,165,250,0.6)" },
+  cuantas: { fontSize: "10px", color: "#cbd5e1", marginLeft: "2px", fontWeight: 700 },
   borrar: {
     position: "absolute",
     top: "6px",

@@ -3,7 +3,7 @@ import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
   cargarSeries, guardarSeries, marcarSerie, racha, progresion, rutinaFinal,
-  hoy, diasEntrenados,
+  hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia } from "./frases.js";
@@ -76,7 +76,7 @@ export default function App() {
     traerPersonalizados(perfil)
       .then((p) => vivo && setPersonalizados(p))
       .catch(() => {});
-    traerEntrenos(perfil)
+    traerEntrenos()
       .then((e) => vivo && setEntrenos(e))
       .catch(() => {});
     return () => {
@@ -103,13 +103,13 @@ export default function App() {
     setHistorico(cargar(id));
     setHechos(cargarHechos(id));
     setSeries(cargarSeries(id));
-    setEntrenos([]);
+
   };
 
   // Marcar un ejercicio o una serie ya cuenta como día de gimnasio: se apunta solo.
   const marcarHoyEntrenado = async () => {
     const fecha = hoy();
-    if (entrenos.some((e) => e.fecha === fecha)) return;
+    if (entrenos.some((e) => e.fecha === fecha && e.perfil === perfil)) return;
     try {
       const fila = await guardarEntreno(perfil, fecha, null, null);
       setEntrenos((x) => [fila, ...x]);
@@ -120,24 +120,28 @@ export default function App() {
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
 
-  const apuntar = async (nombre, peso, reps) => {
+  const apuntar = async (nombre, peso, reps, nota) => {
     const d = delta(historico[nombre] || [], peso);
     let extra = {};
     try {
-      extra = await insertarRegistro(perfil, nombre, peso, reps);
+      extra = await insertarRegistro(perfil, nombre, peso, reps, nota);
       setSinConexion(false);
     } catch {
       setSinConexion(true);
     }
-    setHistorico((h) => apuntarEn(h, nombre, peso, reps, extra));
+    setHistorico((h) => apuntarEn(h, nombre, peso, reps, { nota, ...extra }));
     // Apuntar peso cuenta como ejercicio hecho: la barra sube sola.
     setHechos((n) => (n.includes(nombre) ? n : [...n, nombre]));
     marcarHoyEntrenado();
+    const record = esRecord(historico[nombre] || [], peso);
     const antes = mejorPeso(historico[nombre] || []);
     const logro = logroNuevo(nombre, antes, Number(peso), perfil);
     if (logro) {
       setAviso({ texto: `¡${logro.nombre} en ${nombre}!`, medalla: logro.medalla });
       vibrar([100, 60, 100, 60, 200]);
+    } else if (record) {
+      setAviso({ texto: `🏆 ¡Récord personal en ${nombre}: ${peso} kg!` });
+      vibrar([80, 50, 160]);
     } else {
       setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
       vibrar(25);
@@ -150,7 +154,10 @@ export default function App() {
     if (reg?.id) await borrarRegistro(reg.id).catch(() => setSinConexion(true));
   };
 
-  const diasSeguidos = useMemo(() => racha(diasEntrenados(historico, entrenos)), [historico, entrenos]);
+  const misEntrenos = useMemo(() => entrenos.filter((e) => e.perfil === perfil), [entrenos, perfil]);
+  const diasSeguidos = useMemo(() => racha(diasEntrenados(historico, misEntrenos)), [historico, misEntrenos]);
+
+  const volumenHoy = volumenDia(historico, hoy());
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
 
@@ -269,6 +276,11 @@ export default function App() {
         <div style={s.barra}>
           <div style={{ ...s.barraRelleno, width: `${porcentaje}%` }} />
         </div>
+        {volumenHoy > 0 && (
+          <p style={s.volumen}>
+            Hoy llevas <strong>{volumenHoy.toLocaleString("es-ES")} kg</strong> movidos 🏋️
+          </p>
+        )}
       </div>
       </div>
 
@@ -334,16 +346,19 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
   const [peso, setPeso] = useState("");
   const [reps, setReps] = useState("");
   const [ampliada, setAmpliada] = useState(false);
+  const [nota, setNota] = useState("");
   const ultimo = registros[0];
+  const estimado = mejorEstimado(registros);
 
   const enviar = (e) => {
     e.preventDefault();
     if (!peso) return;
     // Cierra el teclado del móvil: si no, tapa el aviso de confirmación.
     e.currentTarget.querySelector("input")?.blur();
-    apuntar(ej.nombre, peso, reps);
+    apuntar(ej.nombre, peso, reps, nota);
     setPeso("");
     setReps("");
+    setNota("");
   };
 
   return (
@@ -390,6 +405,7 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
         <span style={s.badge}>{ej.series} series</span>
         <span style={s.badge}>{ej.reps} reps</span>
         {ultimo && <span style={s.badgeUltimo}>último: {ultimo.peso} kg</span>}
+        {estimado && <span style={s.badge1rm} title="Máximo estimado a 1 repetición">1RM ≈ {estimado} kg</span>}
       </div>
 
       {meta && (
@@ -437,6 +453,13 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
         <button type="submit" style={s.guardar}>Apuntar</button>
       </form>
 
+      <input
+        placeholder="Nota (opcional): sensaciones, máquina, altura del asiento…"
+        value={nota}
+        onChange={(e) => setNota(e.target.value)}
+        style={{ ...s.input, width: "100%", marginTop: "8px", fontSize: "13px" }}
+      />
+
       <button onClick={toggle} style={s.verMas}>
         {abierto ? "Ocultar histórico" : "Histórico (" + registros.length + ")"}
       </button>
@@ -452,6 +475,7 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
               <span>
                 {r.peso} kg{r.reps ? " × " + r.reps : ""}
               </span>
+              {r.nota && <span style={s.notaRegistro} title={r.nota}>📝</span>}
               <button onClick={() => borrar(ej.nombre, i)} style={s.borrar} aria-label="Borrar registro">
                 ✕
               </button>
@@ -615,6 +639,7 @@ const s = {
     color: "#fbbf24",
   },
   medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
+  volumen: { margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" },
   siguienteMedalla: {
     display: "flex",
     alignItems: "center",
@@ -715,6 +740,15 @@ const s = {
     fontSize: "13px",
     fontWeight: 600,
   },
+  badge1rm: {
+    background: "rgba(168,85,247,0.15)",
+    color: "#c084fc",
+    padding: "6px 12px",
+    borderRadius: "10px",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
+  notaRegistro: { fontSize: "12px", cursor: "help" },
   badgeUltimo: {
     background: "rgba(34,197,94,0.15)",
     color: "#4ade80",

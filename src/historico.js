@@ -163,3 +163,29 @@ export const inicioDeMeses = (columnas) =>
     });
     return acc;
   }, {});
+
+// Volumen de una serie: lo que Hevy llama tonelaje (kg movidos).
+export const volumen = (registros, fecha) =>
+  registros
+    .filter((r) => !fecha || r.fecha === fecha)
+    .reduce((t, r) => t + Number(r.peso || 0) * Number(r.reps || 0), 0);
+
+// Volumen de todos los ejercicios de un día.
+export const volumenDia = (historico, fecha) =>
+  Object.values(historico).reduce((t, regs) => t + volumen(regs, fecha), 0);
+
+// ¿Es el mejor peso que ha levantado nunca en ese ejercicio?
+export const esRecord = (registros, peso) =>
+  registros.length > 0 && Number(peso) > Math.max(...registros.map((r) => Number(r.peso) || 0));
+
+// 1RM estimado por la fórmula de Epley; con 1 repetición es el propio peso.
+export const unaRepeticionMaxima = (peso, reps) => {
+  const p = Number(peso);
+  const r = Number(reps);
+  if (!p || !r || r < 1) return null;
+  return Math.round(p * (1 + r / 30) * 10) / 10;
+};
+
+// El mejor 1RM estimado del histórico de un ejercicio.
+export const mejorEstimado = (registros) =>
+  registros.reduce((max, r) => Math.max(max, unaRepeticionMaxima(r.peso, r.reps) || 0), 0) || null;

@@ -9,7 +9,7 @@ export const supabase = createClient(
 export const traerHistorico = async (perfil) => {
   const { data, error } = await supabase
     .from("registros")
-    .select("id, ejercicio, peso, reps, fecha")
+    .select("id, ejercicio, peso, reps, fecha, nota")
     .eq("perfil", perfil)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -20,10 +20,10 @@ export const traerHistorico = async (perfil) => {
   }, {});
 };
 
-export const insertarRegistro = async (perfil, ejercicio, peso, reps) => {
+export const insertarRegistro = async (perfil, ejercicio, peso, reps, nota) => {
   const { data, error } = await supabase
     .from("registros")
-    .insert({ perfil, ejercicio, peso: Number(peso), reps: reps ? Number(reps) : null })
+    .insert({ perfil, ejercicio, peso: Number(peso), reps: reps ? Number(reps) : null, nota: nota || null })
     .select("id, fecha")
     .single();
   if (error) throw error;
@@ -71,14 +71,29 @@ export const quitarPersonalizado = async (id) => {
   if (error) throw error;
 };
 
-export const traerEntrenos = async (perfil) => {
+// Sin filtrar por perfil: cada uno ve las fotos del otro, que de eso se trata.
+export const traerEntrenos = async () => {
   const { data, error } = await supabase
     .from("entrenos")
-    .select("id, fecha, foto, nota")
-    .eq("perfil", perfil)
+    .select("id, perfil, fecha, foto, nota, reacciones(id, perfil, emoji)")
     .order("fecha", { ascending: false });
   if (error) throw error;
   return data;
+};
+
+export const reaccionar = async (entrenoId, perfil, emoji) => {
+  const { data, error } = await supabase
+    .from("reacciones")
+    .insert({ entreno_id: entrenoId, perfil, emoji })
+    .select("id, perfil, emoji")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const quitarReaccion = async (id) => {
+  const { error } = await supabase.from("reacciones").delete().eq("id", id);
+  if (error) throw error;
 };
 
 export const urlFoto = (ruta) =>
@@ -96,7 +111,7 @@ export const guardarEntreno = async (perfil, fecha, archivo, nota) => {
   const { data, error } = await supabase
     .from("entrenos")
     .insert({ perfil, fecha, foto: ruta, nota: nota || null })
-    .select("id, fecha, foto, nota")
+    .select("id, perfil, fecha, foto, nota")
     .single();
   if (error) throw error;
   return data;
