@@ -60,7 +60,7 @@ export const RUTINAS = {
         { nombre: "Elevaciones laterales con mancuerna", series: "4", reps: "12-15", imagen: `${F}/2021/02/Dumbbell-Lateral-Raise.gif` },
         { nombre: "Press militar", series: "4", reps: "8-10", imagen: `${F}/2021/02/Barbell-Shoulder-Press.gif` },
         { nombre: "Elevaciones laterales en máquina", series: "3", reps: "12-15", imagen: `${F}/2021/09/Lever-Lateral-Raise.gif` },
-        { nombre: "Tríceps con cuerda", series: "3", reps: "10-12", imagen: `${F}/2021/02/Pushdown.gif` },
+        { nombre: "Tríceps con cuerda", series: "3", reps: "10-12", imagen: `${F}/2021/06/Rope-Pushdown.gif` },
         { nombre: "Tríceps tras nuca", series: "3", reps: "10-12", imagen: `${F}/2021/04/Cable-Rope-Overhead-Triceps-Extension.gif` },
       ],
     },
