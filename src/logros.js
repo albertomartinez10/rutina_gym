@@ -1,9 +1,10 @@
+// Medallas de Twemoji (CC-BY 4.0), guardadas en /public para que se vean sin cobertura.
 export const NIVELES = [
-  { nombre: "Primer paso", icono: "🌱" },
-  { nombre: "Cogiendo ritmo", icono: "💫" },
-  { nombre: "Esto va en serio", icono: "🔥" },
-  { nombre: "Bestia", icono: "🦾" },
-  { nombre: "Leyenda", icono: "👑" },
+  { nombre: "Primer paso", icono: "🥉", medalla: "/medallas/bronce.svg" },
+  { nombre: "Cogiendo ritmo", icono: "🥈", medalla: "/medallas/plata.svg" },
+  { nombre: "Esto va en serio", icono: "🥇", medalla: "/medallas/oro.svg" },
+  { nombre: "Bestia", icono: "🏅", medalla: "/medallas/deportiva.svg" },
+  { nombre: "Leyenda", icono: "🏆", medalla: "/medallas/trofeo.svg" },
 ];
 
 // Kilos que marcan cada nivel. Nuria empieza de cero, así que su escala

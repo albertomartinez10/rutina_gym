@@ -109,7 +109,7 @@ export default function App() {
     const antes = mejorPeso(historico[nombre] || []);
     const logro = logroNuevo(nombre, antes, Number(peso), perfil);
     if (logro) {
-      setAviso(`${logro.icono} ¡Logro desbloqueado en ${nombre}: ${logro.nombre}!`);
+      setAviso({ texto: `¡${logro.nombre} en ${nombre}!`, medalla: logro.medalla });
       vibrar([100, 60, 100, 60, 200]);
     } else {
       setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
@@ -249,7 +249,12 @@ export default function App() {
         {editando && <NuevoEjercicio anadir={anadir} restaurar={restaurar} />}
       </main>
 
-      {aviso && <div style={s.aviso}>{aviso}</div>}
+      {aviso && (
+        <div style={s.aviso}>
+          {aviso.medalla && <img src={aviso.medalla} alt="" className="medallon" style={s.avisoMedalla} />}
+          {aviso.texto ?? aviso}
+        </div>
+      )}
       <Descanso />
     </div>
   );
@@ -726,6 +731,7 @@ const s = {
     fontSize: "12px",
     color: "#fbbf24",
   },
+  avisoMedalla: { width: "26px", height: "26px", verticalAlign: "-6px", marginRight: "6px" },
   aviso: {
     position: "fixed",
     left: "50%",
