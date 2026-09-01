@@ -57,9 +57,33 @@ test("todo ejercicio tiene series, reps e imagen", () => {
   );
 });
 
-test("cada ejercicio de Alberto tiene su escala de logros, sin caer en la generica", () => {
-  const generica = escala("__no_existe__", "alberto");
-  rutinaDe("alberto").flatMap((d) => d.ejercicios).forEach((e) => {
-    assert.notEqual(escala(e.nombre, "alberto"), generica, `${e.nombre} usa la escala genérica`);
+test("cada ejercicio tiene su escala de logros, sin caer en la generica", () => {
+  ["nuria", "alberto"].forEach((perfil) => {
+    const generica = escala("__no_existe__", perfil);
+    rutinaDe(perfil).flatMap((d) => d.ejercicios).forEach((e) => {
+      assert.notEqual(escala(e.nombre, perfil), generica, `${e.nombre} (${perfil}) usa la escala genérica`);
+    });
   });
+});
+
+test("la rutina de Nuria es la de gluteo, espalda y femoral", () => {
+  const r = rutinaDe("nuria");
+  assert.deepEqual(r[0].ejercicios.map((e) => e.nombre), [
+    "Prensa", "Extensión de cuádriceps", "Sentadilla hack", "Hip Thrust",
+    "Abducción de cadera", "Tríceps en polea",
+  ]);
+  assert.deepEqual(r[1].ejercicios.map((e) => e.nombre), [
+    "Jalón al pecho", "Remo en polea", "Face pull", "Curl de bíceps",
+    "Curl martillo", "Tríceps en polea",
+  ]);
+  assert.deepEqual(r[2].ejercicios.map((e) => e.nombre), [
+    "Hip Thrust", "Curl femoral", "Peso muerto rumano", "Patada de glúteo en polea",
+    "Press hombro mancuernas", "Elevaciones laterales",
+  ]);
+});
+
+test("el dia de femoral incluye el hombro", () => {
+  const nombres = rutinaDe("nuria")[2].ejercicios.map((e) => e.nombre);
+  assert.ok(nombres.includes("Press hombro mancuernas"));
+  assert.ok(nombres.includes("Elevaciones laterales"));
 });

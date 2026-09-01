@@ -23,6 +23,12 @@ const ESCALAS = {
     Prensa: [40, 60, 80, 100, 130],
     "Extensión de cuádriceps": [15, 25, 35, 45, 55],
     Zancadas: [5, 10, 14, 18, 24],
+    "Sentadilla hack": [20, 35, 50, 65, 85],
+    "Curl femoral": [10, 18, 26, 34, 45],
+    "Face pull": [8, 12, 18, 25, 32],
+    "Curl de bíceps": [4, 6, 8, 10, 14],
+    "Curl martillo": [4, 6, 8, 12, 16],
+    "Tríceps en polea": [8, 14, 20, 27, 35],
     _: [10, 20, 30, 40, 50],
   },
   alberto: {
