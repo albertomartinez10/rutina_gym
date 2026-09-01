@@ -11,6 +11,9 @@ import {
   traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
 } from "./supabase.js";
 import Descanso from "./Descanso.jsx";
+import Logros from "./Logros.jsx";
+import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
+import { logroNuevo, mejorPeso } from "./logros.js";
 import Grafica from "./Grafica.jsx";
 
 const rutina = [
@@ -47,10 +50,11 @@ const rutina = [
 ];
 
 export default function App() {
+  const [perfil, setPerfil] = useState(cargarPerfil);
   const [diaActivo, setDiaActivo] = useState(0);
-  const [historico, setHistorico] = useState(cargar);
-  const [hechos, setHechos] = useState(cargarHechos);
-  const [series, setSeries] = useState(cargarSeries);
+  const [historico, setHistorico] = useState(() => cargar(cargarPerfil()));
+  const [hechos, setHechos] = useState(() => cargarHechos(cargarPerfil()));
+  const [series, setSeries] = useState(() => cargarSeries(cargarPerfil()));
   const [personalizados, setPersonalizados] = useState([]);
   const [editando, setEditando] = useState(false);
   const [abierto, setAbierto] = useState(null);
@@ -61,20 +65,25 @@ export default function App() {
   // Pinta ya con el cache local y luego sincroniza con Supabase.
   useEffect(() => {
     let vivo = true;
-    traerHistorico()
+    guardarPerfil(perfil);
+    setHistorico(cargar(perfil));
+    setHechos(cargarHechos(perfil));
+    setSeries(cargarSeries(perfil));
+    traerHistorico(perfil)
       .then((datos) => vivo && (setHistorico(datos), setSinConexion(false)))
       .catch(() => vivo && setSinConexion(true));
-    traerPersonalizados()
+    traerPersonalizados(perfil)
       .then((p) => vivo && setPersonalizados(p))
       .catch(() => {});
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [perfil]);
 
-  useEffect(() => guardar(historico), [historico]);
-  useEffect(() => guardarHechos(hechos), [hechos]);
-  useEffect(() => guardarSeries(series), [series]);
+
+  useEffect(() => guardar(perfil, historico), [perfil, historico]);
+  useEffect(() => guardarHechos(perfil, hechos), [perfil, hechos]);
+  useEffect(() => guardarSeries(perfil, series), [perfil, series]);
 
   // El aviso se va solo a los 3s.
   useEffect(() => {
@@ -89,7 +98,7 @@ export default function App() {
     const d = delta(historico[nombre] || [], peso);
     let extra = {};
     try {
-      extra = await insertarRegistro(nombre, peso, reps);
+      extra = await insertarRegistro(perfil, nombre, peso, reps);
       setSinConexion(false);
     } catch {
       setSinConexion(true);
@@ -97,8 +106,15 @@ export default function App() {
     setHistorico((h) => apuntarEn(h, nombre, peso, reps, extra));
     // Apuntar peso cuenta como ejercicio hecho: la barra sube sola.
     setHechos((n) => (n.includes(nombre) ? n : [...n, nombre]));
-    setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
-    vibrar(25);
+    const antes = mejorPeso(historico[nombre] || []);
+    const logro = logroNuevo(nombre, antes, Number(peso), perfil);
+    if (logro) {
+      setAviso(`${logro.icono} ¡Logro desbloqueado en ${nombre}: ${logro.nombre}!`);
+      vibrar([100, 60, 100, 60, 200]);
+    } else {
+      setAviso(d === null ? "Primer registro guardado. ¡A por ello! ✨" : celebracion(d));
+      vibrar(25);
+    }
   };
 
   const borrar = async (nombre, i) => {
@@ -113,7 +129,7 @@ export default function App() {
 
   const anadir = async (nombre, ser, reps) => {
     try {
-      const fila = await anadirEjercicio(diaActivo, nombre, ser || "3", reps || "10-12");
+      const fila = await anadirEjercicio(perfil, diaActivo, nombre, ser || "3", reps || "10-12");
       setPersonalizados((p) => [...p, fila]);
       setAviso("Ejercicio añadido 💪");
     } catch {
@@ -129,7 +145,7 @@ export default function App() {
         await quitarPersonalizado(propio.id);
         setPersonalizados((p) => p.filter((x) => x.id !== propio.id));
       } else {
-        const fila = await ocultarEjercicio(diaActivo, ej.nombre);
+        const fila = await ocultarEjercicio(perfil, diaActivo, ej.nombre);
         setPersonalizados((p) => [...p, fila]);
       }
     } catch {
@@ -147,9 +163,26 @@ export default function App() {
   const terminado = completados === ejercicios.length;
 
   const fraseFinal = useMemo(() => finDeDia(), [terminado, diaActivo]);
+  const quien = datosPerfil(perfil);
 
   return (
     <div style={s.page}>
+      <nav style={s.perfiles}>
+        {PERFILES.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPerfil(p.id)}
+            style={{
+              ...s.perfil,
+              ...(p.id === perfil ? { ...s.perfilActivo, borderColor: p.color, color: p.color } : null),
+            }}
+            aria-pressed={p.id === perfil}
+          >
+            {p.emoji} {p.nombre}
+          </button>
+        ))}
+      </nav>
+
       <header style={s.header}>
         <div style={s.halo}>
           <img src="/gymbro.jpeg" alt="Tu gymbro" className="foto" style={s.foto} />
@@ -159,6 +192,9 @@ export default function App() {
         {diasSeguidos > 1 && (
           <p style={s.racha}>🔥 {diasSeguidos} días seguidos. No rompas la cadena</p>
         )}
+        <p style={{ ...s.deQuien, color: quien.color }}>
+          {quien.emoji} Estás en el perfil de {quien.nombre}
+        </p>
         {sinConexion && <p style={s.offline}>Sin conexión: guardando solo en este móvil</p>}
       </header>
 
@@ -189,6 +225,8 @@ export default function App() {
         </div>
       </div>
       </div>
+
+      <Logros historico={historico} perfil={perfil} ejercicios={ejercicios} color={quien.color} />
 
       <main style={s.lista}>
         {ejercicios.map((ej) => (
@@ -443,6 +481,20 @@ const s = {
     paddingTop: "10px",
     marginBottom: "18px",
   },
+  perfiles: { display: "flex", gap: "8px", marginBottom: "14px" },
+  perfil: {
+    flex: 1,
+    padding: "10px",
+    borderRadius: "99px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#94a3b8",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  perfilActivo: { background: "rgba(255,255,255,0.08)" },
+  deQuien: { margin: "8px 0 0", fontSize: "12px", fontWeight: 700 },
   racha: {
     margin: "8px 0 0",
     fontSize: "13px",

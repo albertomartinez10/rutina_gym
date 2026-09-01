@@ -59,14 +59,22 @@ test("borra solo el registro indicado", () => {
 
 test("sobrevive a un guardar/cargar completo", () => {
   fakeStorage();
-  guardar(apuntar({}, "Sentadilla", "62.5", "8"));
-  assert.deepEqual(cargar()["Sentadilla"], [{ fecha: hoy(), peso: "62.5", reps: "8" }]);
+  guardar("nuria", apuntar({}, "Sentadilla", "62.5", "8"));
+  assert.deepEqual(cargar("nuria")["Sentadilla"], [{ fecha: hoy(), peso: "62.5", reps: "8" }]);
+});
+
+test("el cache de un perfil no pisa el del otro", () => {
+  fakeStorage();
+  guardar("nuria", apuntar({}, "Sentadilla", "40"));
+  guardar("alberto", apuntar({}, "Sentadilla", "100"));
+  assert.equal(cargar("nuria")["Sentadilla"][0].peso, "40");
+  assert.equal(cargar("alberto")["Sentadilla"][0].peso, "100");
 });
 
 test("localStorage corrupto no rompe la app", () => {
   const datos = fakeStorage();
-  datos.set(KEY, "{esto no es json");
-  assert.deepEqual(cargar(), {});
+  datos.set(`${KEY}-nuria`, "{esto no es json");
+  assert.deepEqual(cargar("nuria"), {});
 });
 
 test("fechaCorta muestra día/mes", () => {
@@ -92,10 +100,11 @@ test("alternar marca y desmarca", () => {
 
 test("los hechos de ayer no cuentan hoy", () => {
   fakeStorage();
-  localStorage.setItem(HECHOS, JSON.stringify({ fecha: "2020-01-01", nombres: ["Prensa"] }));
-  assert.deepEqual(cargarHechos(), []);
-  guardarHechos(["Prensa"]);
-  assert.deepEqual(cargarHechos(), ["Prensa"]);
+  localStorage.setItem(`${HECHOS}-nuria`, JSON.stringify({ fecha: "2020-01-01", nombres: ["Prensa"] }));
+  assert.deepEqual(cargarHechos("nuria"), []);
+  guardarHechos("nuria", ["Prensa"]);
+  assert.deepEqual(cargarHechos("nuria"), ["Prensa"]);
+  assert.deepEqual(cargarHechos("alberto"), []);
 });
 
 test("la frase del dia es estable dentro del mismo dia y cambia al siguiente", () => {

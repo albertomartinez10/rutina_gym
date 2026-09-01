@@ -6,10 +6,11 @@ export const supabase = createClient(
 );
 
 // Devuelve { ejercicio: [{fecha, peso, reps, id}, ...] }, lo más reciente primero.
-export const traerHistorico = async () => {
+export const traerHistorico = async (perfil) => {
   const { data, error } = await supabase
     .from("registros")
     .select("id, ejercicio, peso, reps, fecha")
+    .eq("perfil", perfil)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -19,10 +20,10 @@ export const traerHistorico = async () => {
   }, {});
 };
 
-export const insertarRegistro = async (ejercicio, peso, reps) => {
+export const insertarRegistro = async (perfil, ejercicio, peso, reps) => {
   const { data, error } = await supabase
     .from("registros")
-    .insert({ ejercicio, peso: Number(peso), reps: reps ? Number(reps) : null })
+    .insert({ perfil, ejercicio, peso: Number(peso), reps: reps ? Number(reps) : null })
     .select("id, fecha")
     .single();
   if (error) throw error;
@@ -34,29 +35,30 @@ export const borrarRegistro = async (id) => {
   if (error) throw error;
 };
 
-export const traerPersonalizados = async () => {
+export const traerPersonalizados = async (perfil) => {
   const { data, error } = await supabase
     .from("personalizados")
     .select("id, dia, nombre, series, reps, imagen, oculto")
+    .eq("perfil", perfil)
     .order("created_at");
   if (error) throw error;
   return data;
 };
 
-export const anadirEjercicio = async (dia, nombre, series, reps) => {
+export const anadirEjercicio = async (perfil, dia, nombre, series, reps) => {
   const { data, error } = await supabase
     .from("personalizados")
-    .insert({ dia, nombre, series, reps, oculto: false })
+    .insert({ perfil, dia, nombre, series, reps, oculto: false })
     .select("id, dia, nombre, series, reps, imagen, oculto")
     .single();
   if (error) throw error;
   return data;
 };
 
-export const ocultarEjercicio = async (dia, nombre) => {
+export const ocultarEjercicio = async (perfil, dia, nombre) => {
   const { data, error } = await supabase
     .from("personalizados")
-    .insert({ dia, nombre, oculto: true })
+    .insert({ perfil, dia, nombre, oculto: true })
     .select("id, dia, nombre, series, reps, imagen, oculto")
     .single();
   if (error) throw error;

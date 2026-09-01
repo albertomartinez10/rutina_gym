@@ -1,15 +1,19 @@
 // ponytail: localStorage basta para una app de una persona; backend solo si quiere sincronizar entre móviles.
 export const KEY = "gymbro-historico";
 
-export const cargar = () => {
+// Una copia local por perfil: si no, el histórico de uno taparía el del otro.
+const claveDe = (perfil) => `${KEY}-${perfil}`;
+
+export const cargar = (perfil) => {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) || {};
+    return JSON.parse(localStorage.getItem(claveDe(perfil))) || {};
   } catch {
     return {};
   }
 };
 
-export const guardar = (historico) => localStorage.setItem(KEY, JSON.stringify(historico));
+export const guardar = (perfil, historico) =>
+  localStorage.setItem(claveDe(perfil), JSON.stringify(historico));
 
 export const hoy = () => new Date().toISOString().slice(0, 10);
 export const fechaCorta = (iso) => iso.split("-").reverse().slice(0, 2).join("/");
@@ -31,17 +35,17 @@ export const borrar = (historico, nombre, i) => ({
 export const HECHOS = "gymbro-hechos";
 
 // Ejercicios marcados como hechos HOY; al cambiar de día se vacía solo.
-export const cargarHechos = () => {
+export const cargarHechos = (perfil) => {
   try {
-    const d = JSON.parse(localStorage.getItem(HECHOS));
+    const d = JSON.parse(localStorage.getItem(`${HECHOS}-${perfil}`));
     return d && d.fecha === hoy() ? d.nombres : [];
   } catch {
     return [];
   }
 };
 
-export const guardarHechos = (nombres) =>
-  localStorage.setItem(HECHOS, JSON.stringify({ fecha: hoy(), nombres }));
+export const guardarHechos = (perfil, nombres) =>
+  localStorage.setItem(`${HECHOS}-${perfil}`, JSON.stringify({ fecha: hoy(), nombres }));
 
 export const alternar = (nombres, nombre) =>
   nombres.includes(nombre) ? nombres.filter((n) => n !== nombre) : [...nombres, nombre];
@@ -56,17 +60,17 @@ export const delta = (registros, peso) => {
 export const SERIES = "gymbro-series";
 
 // Series marcadas HOY, por ejercicio: { "Sentadilla": 3 }. Se vacía al cambiar de día.
-export const cargarSeries = () => {
+export const cargarSeries = (perfil) => {
   try {
-    const d = JSON.parse(localStorage.getItem(SERIES));
+    const d = JSON.parse(localStorage.getItem(`${SERIES}-${perfil}`));
     return d && d.fecha === hoy() ? d.series : {};
   } catch {
     return {};
   }
 };
 
-export const guardarSeries = (series) =>
-  localStorage.setItem(SERIES, JSON.stringify({ fecha: hoy(), series }));
+export const guardarSeries = (perfil, series) =>
+  localStorage.setItem(`${SERIES}-${perfil}`, JSON.stringify({ fecha: hoy(), series }));
 
 // Toca la serie i: si ya estaba marcada la desmarca (y las siguientes), si no marca hasta ella.
 export const marcarSerie = (series, nombre, i) => ({
