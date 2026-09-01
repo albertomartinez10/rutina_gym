@@ -5,6 +5,7 @@ import {
   cargar, guardar, apuntar, borrar, hoy, fechaCorta, KEY,
   delta, alternar, cargarHechos, guardarHechos, HECHOS,
   marcarSerie, racha, progresion, rutinaFinal, semanasDelMes, diasEntrenados,
+  columnasDelAno, inicioDeMeses,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -190,4 +191,31 @@ test("diasEntrenados junta pesos y fotos sin repetir", () => {
   );
   assert.equal(d.size, 2);
   assert.ok(d.has("2026-09-02"));
+});
+
+test("columnasDelAno cubre el año entero en semanas de 7", () => {
+  const c = columnasDelAno(2026);
+  c.forEach((s) => assert.equal(s.length, 7));
+  const dias = c.flat().filter(Boolean);
+  assert.equal(dias.length, 365);
+  assert.equal(dias[0], "2026-01-01");
+  assert.equal(dias.at(-1), "2026-12-31");
+});
+
+test("columnasDelAno cuenta el 29 de febrero en año bisiesto", () => {
+  assert.equal(columnasDelAno(2028).flat().filter(Boolean).length, 366);
+});
+
+test("columnasDelAno empieza cada columna en lunes", () => {
+  // 2026-01-01 es jueves: los tres primeros huecos van vacíos.
+  const primera = columnasDelAno(2026)[0];
+  assert.deepEqual(primera.slice(0, 3), [null, null, null]);
+  assert.equal(primera[3], "2026-01-01");
+});
+
+test("inicioDeMeses situa los doce meses", () => {
+  const c = columnasDelAno(2026);
+  const m = inicioDeMeses(c);
+  assert.equal(Object.keys(m).length, 12);
+  assert.ok(m[0] < m[11]);
 });

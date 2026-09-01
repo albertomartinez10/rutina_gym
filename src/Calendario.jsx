@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { semanasDelMes, diasEntrenados, hoy, fechaCorta } from "./historico.js";
 import { guardarEntreno, borrarEntreno, urlFoto } from "./supabase.js";
+import Ano from "./Ano.jsx";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -18,6 +19,12 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
   const marcados = diasEntrenados(historico, entrenos);
   const delDia = entrenos.filter((e) => e.fecha === dia);
   const totalMes = [...marcados].filter((f) => f.startsWith(`${ano}-${String(mes + 1).padStart(2, "0")}`)).length;
+
+  const irA = (fecha) => {
+    setAno(Number(fecha.slice(0, 4)));
+    setMes(Number(fecha.slice(5, 7)) - 1);
+    setDia(fecha);
+  };
 
   const mover = (paso) => {
     const d = new Date(ano, mes + paso, 1);
@@ -48,6 +55,14 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
 
   return (
     <section>
+      <Ano
+        ano={ano}
+        marcados={marcados}
+        color={color}
+        onDia={irA}
+        cambiarAno={(nuevo) => setAno(nuevo)}
+      />
+
       <div style={s.barra}>
         <button onClick={() => mover(-1)} style={s.mover} aria-label="Mes anterior">‹</button>
         <div style={s.mes}>

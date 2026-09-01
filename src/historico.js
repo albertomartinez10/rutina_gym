@@ -133,3 +133,33 @@ export const diasEntrenados = (historico, entrenos = []) =>
     ...Object.values(historico).flat().map((r) => r.fecha),
     ...entrenos.map((e) => e.fecha),
   ]);
+
+// Rejilla anual estilo GitHub: una columna por semana (lunes arriba),
+// con null en los días que caen fuera del año.
+export const columnasDelAno = (ano) => {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const inicio = new Date(Date.UTC(ano, 0, 1));
+  inicio.setUTCDate(inicio.getUTCDate() - ((inicio.getUTCDay() + 6) % 7)); // retrocede al lunes
+
+  const columnas = [];
+  const cursor = new Date(inicio);
+  while (cursor.getUTCFullYear() <= ano) {
+    const semana = Array.from({ length: 7 }, () => {
+      const f = cursor.getUTCFullYear() === ano ? iso(cursor) : null;
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      return f;
+    });
+    columnas.push(semana);
+    if (cursor.getUTCFullYear() > ano) break;
+  }
+  return columnas;
+};
+
+// En qué columna empieza cada mes, para colocar las etiquetas.
+export const inicioDeMeses = (columnas) =>
+  columnas.reduce((acc, semana, i) => {
+    semana.forEach((f) => {
+      if (f?.endsWith("-01")) acc[Number(f.slice(5, 7)) - 1] = i;
+    });
+    return acc;
+  }, {});
