@@ -8,7 +8,7 @@ import {
   columnasDelAno, inicioDeMeses, cargarCola, guardarCola, encolar, desencolar, fusionar,
   volumen, volumenDia, esRecord, unaRepeticionMaxima, mejorEstimado,
   SESION, cargarSesion, guardarSesion, duracion, recordsDelDia,
-  filasDe, cambiarFila, seriesHechas,
+  filasDe, cambiarFila, seriesHechas, seriesAnteriores,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -383,4 +383,29 @@ test("cada serie puede llevar un peso distinto", () => {
   f = cambiarFila(f, 2, { peso: "50", hecha: true });
   assert.deepEqual(f.map((x) => x.peso), ["60", "65", "50"]);
   assert.equal(seriesHechas(f), 3);
+});
+
+
+test("seriesAnteriores devuelve las series del ultimo dia, en orden", () => {
+  // Los registros llegan del servidor con el más reciente primero.
+  const regs = [
+    { peso: "62.5", reps: "8", fecha: "2026-08-30" },
+    { peso: "60", reps: "10", fecha: "2026-08-30" },
+    { peso: "55", reps: "10", fecha: "2026-08-20" },
+  ];
+  const a = seriesAnteriores(regs, "2026-09-01");
+  assert.deepEqual(a.map((r) => r.peso), ["60", "62.5"], "serie 1 primero");
+});
+
+test("seriesAnteriores ignora lo apuntado hoy", () => {
+  const regs = [
+    { peso: "70", fecha: "2026-09-01" },
+    { peso: "60", fecha: "2026-08-30" },
+  ];
+  assert.deepEqual(seriesAnteriores(regs, "2026-09-01").map((r) => r.peso), ["60"]);
+});
+
+test("seriesAnteriores no falla la primera vez", () => {
+  assert.deepEqual(seriesAnteriores([], "2026-09-01"), []);
+  assert.deepEqual(seriesAnteriores([{ peso: "50", fecha: "2026-09-01" }], "2026-09-01"), []);
 });

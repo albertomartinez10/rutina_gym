@@ -290,3 +290,11 @@ export const cargarFin = (perfil) => {
 
 export const guardarFin = (perfil, fin) =>
   localStorage.setItem(`${FIN}-${perfil}`, JSON.stringify({ fecha: hoy(), fin }));
+
+// Lo que hizo el último día que tocó ese ejercicio, serie a serie y en orden.
+// Es la columna "anterior": sirve de referencia para saber qué poner hoy.
+export const seriesAnteriores = (registros, fecha = hoy()) => {
+  const otroDia = registros.find((r) => r.fecha !== fecha)?.fecha;
+  if (!otroDia) return [];
+  return registros.filter((r) => r.fecha === otroDia).reverse();
+};

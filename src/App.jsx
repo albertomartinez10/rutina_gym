@@ -3,7 +3,7 @@ import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
   cargarSeries, guardarSeries, racha, progresion, rutinaFinal,
-  filasDe, cambiarFila, seriesHechas,
+  filasDe, cambiarFila, seriesHechas, seriesAnteriores,
   hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
   cargarCola, guardarCola, encolar, desencolar, fusionar,
   cargarSesion, guardarSesion, duracion, recordsDelDia, cargarFin, guardarFin,
@@ -471,6 +471,7 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
   const [nota, setNota] = useState("");
   const estimado = mejorEstimado(registros);
   const filas = filasDe(guardadas, Number(ej.series) || 1, ultimo?.peso ?? "", ultimo?.reps ?? "");
+  const anteriores = seriesAnteriores(registros);
 
   const editarFila = (i, cambios) => guardarFilas(cambiarFila(filas, i, cambios));
 
@@ -550,59 +551,51 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
       )}
 
       <div style={s.series}>
-        {filas.map((f, i) => (
-          <div key={i} style={{ ...s.serieFila, ...(f.hecha ? s.serieHecha : null) }}>
-            <span style={s.serieNum}>{i + 1}</span>
+        <div style={s.serieCabecera}>
+          <span>SERIE</span>
+          <span style={s.colAnterior}>ANTERIOR</span>
+          <span style={s.colNum}>KG</span>
+          <span style={s.colNum}>REPS</span>
+          <span />
+        </div>
 
-            <button
-              type="button"
-              onClick={() => editarFila(i, { peso: String(Math.max(0, (Number(f.peso) || 0) - 2.5)) })}
-              style={s.paso}
-              aria-label={`Quitar 2,5 kg a la serie ${i + 1}`}
-            >
-              −
-            </button>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.5"
-              placeholder="kg"
-              value={f.peso}
-              onChange={(e) => editarFila(i, { peso: e.target.value })}
-              style={s.inputSerie}
-              aria-label={`Peso de la serie ${i + 1}`}
-            />
-            <button
-              type="button"
-              onClick={() => editarFila(i, { peso: String((Number(f.peso) || 0) + 2.5) })}
-              style={s.paso}
-              aria-label={`Añadir 2,5 kg a la serie ${i + 1}`}
-            >
-              +
-            </button>
-
-            <input
-              type="number"
-              inputMode="numeric"
-              placeholder="reps"
-              value={f.reps}
-              onChange={(e) => editarFila(i, { reps: e.target.value })}
-              style={{ ...s.inputSerie, flex: "0 1 52px" }}
-              aria-label={`Repeticiones de la serie ${i + 1}`}
-            />
-
-            <button
-              type="button"
-              onClick={() => hacerSerie(i)}
-              style={{ ...s.serieCheck, ...(f.hecha ? s.serieCheckOn : null) }}
-              aria-pressed={f.hecha}
-              aria-label={f.hecha ? `Deshacer serie ${i + 1}` : `Guardar serie ${i + 1}`}
-            >
-              ✓
-            </button>
-          </div>
-        ))}
-        <span style={s.seriesTexto}>{seriesHechas(filas)} de {filas.length} series</span>
+        {filas.map((f, i) => {
+          const previa = anteriores[i];
+          return (
+            <div key={i} style={{ ...s.serieFila, ...(f.hecha ? s.serieHecha : null) }}>
+              <span style={s.serieNum}>{i + 1}</span>
+              <span style={s.anterior}>{previa ? `${previa.peso}×${previa.reps || "-"}` : "—"}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                placeholder={previa?.peso ?? "kg"}
+                value={f.peso}
+                onChange={(e) => editarFila(i, { peso: e.target.value })}
+                style={s.inputSerie}
+                aria-label={`Peso de la serie ${i + 1}`}
+              />
+              <input
+                type="number"
+                inputMode="numeric"
+                placeholder={previa?.reps ?? "reps"}
+                value={f.reps}
+                onChange={(e) => editarFila(i, { reps: e.target.value })}
+                style={s.inputSerie}
+                aria-label={`Repeticiones de la serie ${i + 1}`}
+              />
+              <button
+                type="button"
+                onClick={() => hacerSerie(i)}
+                style={{ ...s.serieCheck, ...(f.hecha ? s.serieCheckOn : null) }}
+                aria-pressed={f.hecha}
+                aria-label={f.hecha ? `Deshacer serie ${i + 1}` : `Guardar serie ${i + 1}`}
+              >
+                ✓
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <input
@@ -862,58 +855,54 @@ const s = {
     color: "#64748b",
   },
   medallaMini: { width: "11px", height: "18px", objectFit: "contain", filter: "grayscale(1)", opacity: 0.7 },
-  series: { display: "grid", gap: "6px", marginBottom: "10px" },
-  serieFila: {
-    display: "flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "4px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.06)",
+  series: { marginBottom: "10px" },
+  serieCabecera: {
+    display: "grid",
+    gridTemplateColumns: "30px 1fr 54px 48px 36px",
+    gap: "4px",
+    padding: "0 2px 4px",
+    fontSize: "9px",
+    fontWeight: 700,
+    color: "#475569",
+    letterSpacing: "0.04em",
   },
-  serieHecha: { background: "rgba(74,222,128,0.08)", borderColor: "rgba(74,222,128,0.3)" },
-  serieNum: { width: "16px", fontSize: "12px", color: "#64748b", fontWeight: 700, textAlign: "center" },
+  colAnterior: { textAlign: "center" },
+  colNum: { textAlign: "center" },
+  serieFila: {
+    display: "grid",
+    gridTemplateColumns: "30px 1fr 54px 48px 36px",
+    gap: "4px",
+    alignItems: "center",
+    padding: "2px",
+    borderRadius: "8px",
+  },
+  serieHecha: { background: "rgba(74,222,128,0.12)" },
+  serieNum: { fontSize: "13px", color: "#94a3b8", fontWeight: 700, textAlign: "center" },
+  anterior: { fontSize: "12px", color: "#64748b", textAlign: "center" },
   inputSerie: {
-    flex: "1 1 56px",
+    width: "100%",
     minWidth: 0,
-    padding: "9px 4px",
+    padding: "8px 2px",
     fontSize: "16px",
     textAlign: "center",
-    borderRadius: "10px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.05)",
+    borderRadius: "8px",
+    border: "none",
+    background: "rgba(255,255,255,0.07)",
     color: "#fff",
   },
   serieCheck: {
-    width: "38px",
-    height: "38px",
-    flexShrink: 0,
-    borderRadius: "10px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "transparent",
+    width: "36px",
+    height: "34px",
+    padding: 0,
+    borderRadius: "8px",
+    border: "none",
+    background: "rgba(255,255,255,0.07)",
     color: "#475569",
-    fontSize: "15px",
-    cursor: "pointer",
-  },
-  serieCheckOn: { background: "#22c55e", borderColor: "#22c55e", color: "#fff" },
-  seriesFila: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" },
-  serie: {
-    width: "38px",
-    height: "38px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.04)",
-    color: "#64748b",
     fontSize: "14px",
-    fontWeight: 700,
     cursor: "pointer",
   },
-  serieOn: {
-    background: "rgba(59,130,246,0.25)",
-    borderColor: "rgba(96,165,250,0.7)",
-    color: "#fff",
-  },
-  seriesTexto: { fontSize: "12px", color: "#64748b", marginLeft: "auto" },
+  serieCheckOn: { background: "#22c55e", color: "#fff" },
+
   editar: {
     marginLeft: "10px",
     padding: "2px 10px",
@@ -1005,19 +994,6 @@ const s = {
     fontWeight: 600,
   },
   form: { display: "flex", flexWrap: "wrap", gap: "8px" },
-  pesoCaja: { display: "flex", alignItems: "stretch", gap: "6px", flex: "1 1 190px", minWidth: 0 },
-  paso: {
-    width: "32px",
-    height: "38px",
-    flexShrink: 0,
-    borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.05)",
-    color: "#e2e8f0",
-    fontSize: "20px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
   input: {
     minWidth: "72px",
     flex: 1,
