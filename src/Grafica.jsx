@@ -1,6 +1,15 @@
 // Sparkline en SVG plano: nada de librerías para 10 puntos.
 export default function Grafica({ pesos }) {
-  if (pesos.length < 2) return null;
+  // Un punto por día: hasta el segundo día no hay línea que dibujar.
+  if (pesos.length < 2) {
+    return (
+      <p style={aviso}>
+        {pesos.length === 1
+          ? `Hoy: ${pesos[0]} kg. Cuando repitas este ejercicio otro día verás aquí tu progresión 📈`
+          : "Apunta un peso y aquí saldrá tu progresión 📈"}
+      </p>
+    );
+  }
 
   const w = 260;
   const h = 60;
@@ -35,3 +44,5 @@ export default function Grafica({ pesos }) {
     </div>
   );
 }
+
+const aviso = { margin: "10px 0 0", fontSize: "12px", color: "#64748b", lineHeight: 1.4 };

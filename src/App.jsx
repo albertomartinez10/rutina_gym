@@ -615,7 +615,7 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
       />
 
       <button onClick={toggle} style={s.verMas}>
-        {abierto ? "Ocultar histórico" : "Histórico (" + registros.length + ")"}
+        {abierto ? "Ocultar progresión" : "📈 Progresión e histórico (" + registros.length + ")"}
       </button>
 
       {abierto && (
