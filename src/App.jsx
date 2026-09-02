@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
-  cargarSeries, guardarSeries, marcarSerie, racha, progresion, rutinaFinal,
+  cargarSeries, guardarSeries, racha, progresion, rutinaFinal,
+  filasDe, cambiarFila, seriesHechas,
   hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
   cargarCola, guardarCola, encolar, desencolar, fusionar,
-  cargarSesion, guardarSesion, duracion, recordsDelDia,
+  cargarSesion, guardarSesion, duracion, recordsDelDia, cargarFin, guardarFin,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia, fraseLogro } from "./frases.js";
@@ -19,7 +20,7 @@ import Logros from "./Logros.jsx";
 import Calendario from "./Calendario.jsx";
 import Pique from "./Pique.jsx";
 import { porPerfil, resumenDe } from "./pique.js";
-import { soportadas, activar, desactivar, yaActivadas, avisar } from "./notificaciones.js";
+import { soportadas, activar, desactivar, yaActivadas, avisar, porQueNoHayAvisos } from "./notificaciones.js";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import { rutinaDe } from "./rutinas.js";
@@ -37,6 +38,7 @@ export default function App() {
   const [cola, setCola] = useState(cargarCola);
   const [inicioSesion, setInicioSesion] = useState(() => cargarSesion(cargarPerfil()));
   const [pedirDescanso, setPedirDescanso] = useState(0);
+  const [finSesion, setFinSesion] = useState(() => cargarFin(cargarPerfil()));
   const [todos, setTodos] = useState({});
   const [avisos, setAvisos] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -121,6 +123,7 @@ export default function App() {
     setHechos(cargarHechos(id));
     setSeries(cargarSeries(id));
     setInicioSesion(cargarSesion(id));
+    setFinSesion(cargarFin(id));
 
   };
 
@@ -161,6 +164,17 @@ export default function App() {
     const ok = await activar(perfil);
     setAvisos(ok);
     setAviso(ok ? "Avisos activados 🔔" : "El móvil no ha dado permiso para avisos");
+  };
+
+  // Cerrar el entreno con lo que haya hecho, sin obligar a completar la rutina.
+  const terminarEntreno = () => {
+    const fin = finSesion ? null : Date.now();
+    guardarFin(perfil, fin);
+    setFinSesion(fin);
+    if (fin) {
+      vibrar([60, 40, 120]);
+      setAviso({ texto: "Entreno cerrado 🎉", frase: finDeDia() });
+    }
   };
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
@@ -261,39 +275,6 @@ export default function App() {
 
   return (
     <div style={s.page}>
-      <nav style={s.perfiles}>
-        {PERFILES.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => cambiarPerfil(p.id)}
-            style={{
-              ...s.perfil,
-              ...(p.id === perfil ? { ...s.perfilActivo, borderColor: p.color, color: p.color } : null),
-            }}
-            aria-pressed={p.id === perfil}
-          >
-            {p.emoji} {p.nombre}
-          </button>
-        ))}
-      </nav>
-
-      <nav style={s.menu}>
-        {[
-          ["rutina", "🏋️ Rutina"],
-          ["medallas", "🏅 Medallas"],
-          ["calendario", "📅 Calendario"],
-          ["pique", "🔥 Pique"],
-        ].map(([id, texto]) => (
-          <button
-            key={id}
-            onClick={() => setPantalla(id)}
-            style={{ ...s.menuBoton, ...(pantalla === id ? { ...s.menuActivo, color: quien.color } : null) }}
-            aria-pressed={pantalla === id}
-          >
-            {texto}
-          </button>
-        ))}
-      </nav>
 
       <header style={s.header}>
         <div style={s.halo}>
@@ -307,10 +288,12 @@ export default function App() {
         <p style={{ ...s.deQuien, color: quien.color }}>
           {quien.emoji} Estás en el perfil de {quien.nombre}
         </p>
-        {soportadas() && (
+        {soportadas() ? (
           <button onClick={cambiarAvisos} style={{ ...s.avisosBoton, ...(avisos ? s.avisosOn : null) }}>
             {avisos ? "🔔 Avisos activados" : "🔕 Activar avisos del otro"}
           </button>
+        ) : (
+          <p style={s.avisosPista}>🔕 {porQueNoHayAvisos()}</p>
         )}
         {sinConexion && (
           <p style={s.offline}>
@@ -373,16 +356,12 @@ export default function App() {
             toggle={() => setAbierto(abierto === ej.nombre ? null : ej.nombre)}
             nivel={nivelDe(ej.nombre, mejorPeso(historico[ej.nombre] || []), perfil)}
             meta={siguienteMeta(ej.nombre, historico, perfil)}
-            series={series[ej.nombre] || 0}
-            tocarSerie={(i) => {
+            filas={series[ej.nombre]}
+            guardarFilas={(nuevas) => setSeries((x) => ({ ...x, [ej.nombre]: nuevas }))}
+            alHacerSerie={() => {
               vibrar(10);
               marcarHoyEntrenado();
-              setSeries((x) => {
-                const nuevas = marcarSerie(x, ej.nombre, i);
-                // Al sumar una serie empieza el descanso; al desmarcar, no.
-                if ((nuevas[ej.nombre] || 0) > (x[ej.nombre] || 0)) setPedirDescanso(Date.now());
-                return nuevas;
-              });
+              setPedirDescanso(Date.now());
             }}
             editando={editando}
             quitar={() => quitar(ej)}
@@ -391,14 +370,20 @@ export default function App() {
           />
         ))}
         {editando && <NuevoEjercicio anadir={anadir} restaurar={restaurar} />}
+
+        {completados > 0 && (
+          <button onClick={terminarEntreno} style={s.terminar}>
+            {finSesion ? "Seguir entrenando" : `Terminar entreno (${completados} de ${ejercicios.length})`}
+          </button>
+        )}
       </main>
       </>)}
 
-      {pantalla === "rutina" && terminado && (
+      {pantalla === "rutina" && (terminado || finSesion) && (
         <section style={s.resumen}>
           <h2 style={s.resumenTitulo}>Resumen de hoy</h2>
           <div style={s.resumenFilas}>
-            <span>Duración</span><strong>{duracion(inicioSesion) ?? "—"}</strong>
+            <span>Duración</span><strong>{duracion(inicioSesion, finSesion ?? Date.now()) ?? "—"}</strong>
             <span>Kilos movidos</span><strong>{volumenHoy.toLocaleString("es-ES")} kg</strong>
             <span>Ejercicios</span><strong>{completados} de {ejercicios.length}</strong>
           </div>
@@ -447,17 +432,59 @@ export default function App() {
         </div>
       )}
       <Descanso arrancar={pedirDescanso} />
+
+      {/* Barra de abajo: se llega con el pulgar sin estirar la mano */}
+      <nav style={s.menu}>
+        {[
+          ["rutina", "🏋️", "Rutina"],
+          ["medallas", "🏅", "Medallas"],
+          ["calendario", "📅", "Calendario"],
+          ["pique", "🔥", "Pique"],
+        ].map(([id, icono, texto]) => (
+          <button
+            key={id}
+            onClick={() => setPantalla(id)}
+            style={{ ...s.menuBoton, ...(pantalla === id ? { ...s.menuActivo, color: quien.color } : null) }}
+            aria-pressed={pantalla === id}
+          >
+            <span style={s.menuIcono}>{icono}</span>
+            {texto}
+          </button>
+        ))}
+
+        <button
+          onClick={() => cambiarPerfil(PERFILES.find((p) => p.id !== perfil).id)}
+          style={{ ...s.menuBoton, ...s.menuPerfil, color: quien.color }}
+          aria-label={`Cambiar a ${PERFILES.find((p) => p.id !== perfil).nombre}`}
+        >
+          <span style={s.menuIcono}>{quien.emoji}</span>
+          {quien.nombre}
+        </button>
+      </nav>
     </div>
   );
 }
 
-function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
+function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas, guardarFilas, alHacerSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
   const ultimo = registros[0];
-  const [peso, setPeso] = useState(ultimo?.peso ?? "");
-  const [reps, setReps] = useState(ultimo?.reps ?? "");
   const [ampliada, setAmpliada] = useState(false);
   const [nota, setNota] = useState("");
   const estimado = mejorEstimado(registros);
+  const filas = filasDe(guardadas, Number(ej.series) || 1, ultimo?.peso ?? "", ultimo?.reps ?? "");
+
+  const editarFila = (i, cambios) => guardarFilas(cambiarFila(filas, i, cambios));
+
+  const hacerSerie = (i) => {
+    const f = filas[i];
+    if (f.hecha) {
+      guardarFilas(cambiarFila(filas, i, { hecha: false }));
+      return;
+    }
+    if (!f.peso) return;
+    apuntar(ej.nombre, f.peso, f.reps, nota);
+    guardarFilas(cambiarFila(filas, i, { hecha: true }));
+    alHacerSerie();
+  };
 
   const enviar = (e) => {
     e.preventDefault();
@@ -522,61 +549,61 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, series, tocarSer
         </p>
       )}
 
-      <div style={s.seriesFila}>
-        {Array.from({ length: Number(ej.series) || 0 }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => tocarSerie(i)}
-            style={{ ...s.serie, ...(i < series ? s.serieOn : null) }}
-            aria-label={`Serie ${i + 1}${i < series ? " hecha" : ""}`}
-            aria-pressed={i < series}
-          >
-            {i + 1}
-          </button>
-        ))}
-        <span style={s.seriesTexto}>{series}/{ej.series} series</span>
-      </div>
+      <div style={s.series}>
+        {filas.map((f, i) => (
+          <div key={i} style={{ ...s.serieFila, ...(f.hecha ? s.serieHecha : null) }}>
+            <span style={s.serieNum}>{i + 1}</span>
 
-      <form onSubmit={enviar} style={s.form}>
-        <div style={s.pesoCaja}>
-          <button
-            type="button"
-            onClick={() => setPeso((p) => String(Math.max(0, (Number(p) || 0) - 2.5)))}
-            style={s.paso}
-            aria-label="Quitar 2,5 kg"
-          >
-            −
-          </button>
-          <input
-            type="number"
-            inputMode="decimal"
-            step="0.5"
-            placeholder="kg"
-            enterKeyHint="done"
-            value={peso}
-            onChange={(e) => setPeso(e.target.value)}
-            style={{ ...s.input, textAlign: "center" }}
-          />
-          <button
-            type="button"
-            onClick={() => setPeso((p) => String((Number(p) || 0) + 2.5))}
-            style={s.paso}
-            aria-label="Añadir 2,5 kg"
-          >
-            +
-          </button>
-        </div>
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="reps"
-          enterKeyHint="done"
-          value={reps}
-          onChange={(e) => setReps(e.target.value)}
-          style={s.input}
-        />
-        <button type="submit" style={s.guardar}>Apuntar</button>
-      </form>
+            <button
+              type="button"
+              onClick={() => editarFila(i, { peso: String(Math.max(0, (Number(f.peso) || 0) - 2.5)) })}
+              style={s.paso}
+              aria-label={`Quitar 2,5 kg a la serie ${i + 1}`}
+            >
+              −
+            </button>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.5"
+              placeholder="kg"
+              value={f.peso}
+              onChange={(e) => editarFila(i, { peso: e.target.value })}
+              style={s.inputSerie}
+              aria-label={`Peso de la serie ${i + 1}`}
+            />
+            <button
+              type="button"
+              onClick={() => editarFila(i, { peso: String((Number(f.peso) || 0) + 2.5) })}
+              style={s.paso}
+              aria-label={`Añadir 2,5 kg a la serie ${i + 1}`}
+            >
+              +
+            </button>
+
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="reps"
+              value={f.reps}
+              onChange={(e) => editarFila(i, { reps: e.target.value })}
+              style={{ ...s.inputSerie, flex: "0 1 52px" }}
+              aria-label={`Repeticiones de la serie ${i + 1}`}
+            />
+
+            <button
+              type="button"
+              onClick={() => hacerSerie(i)}
+              style={{ ...s.serieCheck, ...(f.hecha ? s.serieCheckOn : null) }}
+              aria-pressed={f.hecha}
+              aria-label={f.hecha ? `Deshacer serie ${i + 1}` : `Guardar serie ${i + 1}`}
+            >
+              ✓
+            </button>
+          </div>
+        ))}
+        <span style={s.seriesTexto}>{seriesHechas(filas)} de {filas.length} series</span>
+      </div>
 
       <input
         placeholder="Nota (opcional): sensaciones, máquina, altura del asiento…"
@@ -666,7 +693,7 @@ const s = {
     background: "transparent",
     color: "#f8fafc",
     fontFamily: "'Outfit', system-ui, sans-serif",
-    padding: "16px 14px calc(40px + env(safe-area-inset-bottom))",
+    padding: "16px 14px calc(96px + env(safe-area-inset-bottom))",
     maxWidth: "560px",
     margin: "0 auto",
     boxSizing: "border-box",
@@ -735,33 +762,38 @@ const s = {
     paddingTop: "10px",
     marginBottom: "18px",
   },
-  menu: { display: "flex", gap: "5px", marginBottom: "16px" },
+  menu: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    display: "flex",
+    gap: "2px",
+    padding: "6px 6px calc(6px + env(safe-area-inset-bottom))",
+    background: "rgba(11,16,32,0.94)",
+    backdropFilter: "blur(14px)",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+  },
   menuBoton: {
     flex: 1,
     minWidth: 0,
-    padding: "10px 2px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "2px",
+    padding: "8px 2px",
     borderRadius: "12px",
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.03)",
+    border: "none",
+    background: "transparent",
     color: "#94a3b8",
-    fontSize: "12px",
+    fontSize: "10px",
     fontWeight: 700,
     cursor: "pointer",
   },
+  menuIcono: { fontSize: "19px", lineHeight: 1 },
   menuActivo: { background: "rgba(255,255,255,0.09)" },
-  perfiles: { display: "flex", gap: "8px", marginBottom: "14px" },
-  perfil: {
-    flex: 1,
-    padding: "10px",
-    borderRadius: "99px",
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.03)",
-    color: "#94a3b8",
-    fontSize: "14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  perfilActivo: { background: "rgba(255,255,255,0.08)" },
+  menuPerfil: { borderLeft: "1px solid rgba(255,255,255,0.1)", borderRadius: 0 },
   avisosBoton: {
     marginTop: "10px",
     padding: "7px 14px",
@@ -773,6 +805,7 @@ const s = {
     fontWeight: 700,
     cursor: "pointer",
   },
+  avisosPista: { margin: "10px 0 0", fontSize: "11px", color: "#fbbf24", lineHeight: 1.4 },
   avisosOn: { borderColor: "rgba(74,222,128,0.5)", color: "#4ade80" },
   deQuien: { margin: "8px 0 0", fontSize: "12px", fontWeight: 700 },
   racha: {
@@ -793,6 +826,17 @@ const s = {
   },
   medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
   volumen: { margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" },
+  terminar: {
+    marginTop: "4px",
+    padding: "14px",
+    borderRadius: "16px",
+    border: "1px solid rgba(74,222,128,0.4)",
+    background: "rgba(74,222,128,0.1)",
+    color: "#4ade80",
+    fontSize: "15px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
   resumen: {
     marginTop: "18px",
     padding: "16px",
@@ -818,6 +862,40 @@ const s = {
     color: "#64748b",
   },
   medallaMini: { width: "11px", height: "18px", objectFit: "contain", filter: "grayscale(1)", opacity: 0.7 },
+  series: { display: "grid", gap: "6px", marginBottom: "10px" },
+  serieFila: {
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    padding: "4px",
+    borderRadius: "12px",
+    border: "1px solid rgba(255,255,255,0.06)",
+  },
+  serieHecha: { background: "rgba(74,222,128,0.08)", borderColor: "rgba(74,222,128,0.3)" },
+  serieNum: { width: "16px", fontSize: "12px", color: "#64748b", fontWeight: 700, textAlign: "center" },
+  inputSerie: {
+    flex: "1 1 56px",
+    minWidth: 0,
+    padding: "9px 4px",
+    fontSize: "16px",
+    textAlign: "center",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#fff",
+  },
+  serieCheck: {
+    width: "38px",
+    height: "38px",
+    flexShrink: 0,
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "transparent",
+    color: "#475569",
+    fontSize: "15px",
+    cursor: "pointer",
+  },
+  serieCheckOn: { background: "#22c55e", borderColor: "#22c55e", color: "#fff" },
   seriesFila: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" },
   serie: {
     width: "38px",
@@ -929,7 +1007,8 @@ const s = {
   form: { display: "flex", flexWrap: "wrap", gap: "8px" },
   pesoCaja: { display: "flex", alignItems: "stretch", gap: "6px", flex: "1 1 190px", minWidth: 0 },
   paso: {
-    width: "44px",
+    width: "32px",
+    height: "38px",
     flexShrink: 0,
     borderRadius: "12px",
     border: "1px solid rgba(255,255,255,0.12)",
@@ -1069,7 +1148,7 @@ const s = {
   aviso: {
     position: "fixed",
     left: "50%",
-    bottom: "calc(78px + env(safe-area-inset-bottom))",
+    bottom: "calc(150px + env(safe-area-inset-bottom))",
     transform: "translateX(-50%)",
     display: "flex",
     alignItems: "center",

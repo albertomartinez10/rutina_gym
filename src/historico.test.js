@@ -8,6 +8,7 @@ import {
   columnasDelAno, inicioDeMeses, cargarCola, guardarCola, encolar, desencolar, fusionar,
   volumen, volumenDia, esRecord, unaRepeticionMaxima, mejorEstimado,
   SESION, cargarSesion, guardarSesion, duracion, recordsDelDia,
+  filasDe, cambiarFila, seriesHechas,
 } from "./historico.js";
 import { fraseDelDia } from "./frases.js";
 
@@ -154,8 +155,32 @@ test("racha es 0 sin registros", () => {
 });
 
 test("progresion devuelve los pesos del mas antiguo al mas nuevo", () => {
-  const regs = [{ peso: "70" }, { peso: "65" }, { peso: "60" }];
+  const regs = [
+    { peso: "70", fecha: "2026-09-03" },
+    { peso: "65", fecha: "2026-09-02" },
+    { peso: "60", fecha: "2026-09-01" },
+  ];
   assert.deepEqual(progresion(regs), [60, 65, 70]);
+});
+
+test("progresion marca un solo punto por dia: el peso maximo", () => {
+  const regs = [
+    { peso: "60", fecha: "2026-09-01" },
+    { peso: "70", fecha: "2026-09-01" },
+    { peso: "50", fecha: "2026-09-01" },
+    { peso: "75", fecha: "2026-09-02" },
+  ];
+  assert.deepEqual(progresion(regs), [70, 75]);
+});
+
+test("progresion se queda con los ultimos dias, no con los primeros", () => {
+  const regs = Array.from({ length: 15 }, (_, i) => ({
+    peso: String(i),
+    fecha: `2026-09-${String(i + 1).padStart(2, "0")}`,
+  }));
+  const p = progresion(regs, 10);
+  assert.equal(p.length, 10);
+  assert.equal(p.at(-1), 14);
 });
 
 test("rutinaFinal esconde los ocultos y suma los anadidos", () => {
@@ -321,4 +346,41 @@ test("recordsDelDia solo cuenta lo que supera dias anteriores", () => {
   const r = recordsDelDia(h, "2026-09-01");
   assert.deepEqual(r.map((x) => x.ejercicio), ["Prensa"]);
   assert.equal(r[0].anterior, 100);
+});
+
+
+test("filasDe crea una fila por serie con el peso de la ultima vez", () => {
+  const f = filasDe(undefined, 3, "60", "10");
+  assert.equal(f.length, 3);
+  assert.deepEqual(f[0], { peso: "60", reps: "10", hecha: false });
+});
+
+test("filasDe respeta lo que ya habia apuntado hoy", () => {
+  const guardadas = [{ peso: "70", reps: "8", hecha: true }];
+  const f = filasDe(guardadas, 3, "60", "10");
+  assert.equal(f[0].peso, "70");
+  assert.equal(f[0].hecha, true);
+  assert.equal(f[1].peso, "60", "las que faltan siguen con el peso de referencia");
+});
+
+test("cambiarFila solo toca la fila indicada", () => {
+  const f = filasDe(undefined, 3, "60");
+  const r = cambiarFila(f, 1, { peso: "65" });
+  assert.equal(r[1].peso, "65");
+  assert.equal(r[0].peso, "60");
+  assert.equal(r[2].peso, "60");
+});
+
+test("seriesHechas cuenta las marcadas, esten donde esten", () => {
+  const f = [{ hecha: true }, { hecha: false }, { hecha: true }];
+  assert.equal(seriesHechas(f), 2);
+});
+
+test("cada serie puede llevar un peso distinto", () => {
+  let f = filasDe(undefined, 3, "60");
+  f = cambiarFila(f, 0, { peso: "60", hecha: true });
+  f = cambiarFila(f, 1, { peso: "65", hecha: true });
+  f = cambiarFila(f, 2, { peso: "50", hecha: true });
+  assert.deepEqual(f.map((x) => x.peso), ["60", "65", "50"]);
+  assert.equal(seriesHechas(f), 3);
 });

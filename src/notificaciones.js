@@ -5,6 +5,22 @@ const CLAVE_PUBLICA = import.meta.env.VITE_VAPID_PUBLIC;
 export const soportadas = () =>
   typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
 
+export const esIOS = () =>
+  typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+export const instalada = () =>
+  typeof window !== "undefined" &&
+  (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
+
+// En iPhone, Safari solo da avisos si la app está en la pantalla de inicio.
+export const porQueNoHayAvisos = () => {
+  if (soportadas()) return null;
+  if (esIOS() && !instalada()) {
+    return "Para recibir avisos en iPhone: Compartir → Añadir a pantalla de inicio, y abre la app desde ahí";
+  }
+  return "Este navegador no admite avisos";
+};
+
 // La clave VAPID viaja en base64url y el navegador la quiere en bytes.
 const aBytes = (base64) => {
   const relleno = "=".repeat((4 - (base64.length % 4)) % 4);

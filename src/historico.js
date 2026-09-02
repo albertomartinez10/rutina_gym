@@ -78,6 +78,18 @@ export const marcarSerie = (series, nombre, i) => ({
   [nombre]: (series[nombre] || 0) === i + 1 ? i : i + 1,
 });
 
+// Una fila por serie, cada una con su peso: rara vez se hacen las 4 con el mismo.
+export const filasDe = (series, cuantas, ultimoPeso = "", ultimasReps = "") =>
+  Array.from({ length: cuantas }, (_, i) => series?.[i] ?? { peso: ultimoPeso, reps: ultimasReps, hecha: false });
+
+export const cambiarFila = (filas, i, cambios) =>
+  filas.map((f, j) => (j === i ? { ...f, ...cambios } : f));
+
+export const seriesHechas = (filas) => filas.filter((f) => f.hecha).length;
+
+// Al desmarcar una serie hecha hay que poder recuperar su registro para borrarlo.
+export const filaConRegistro = (filas, i, registro) => cambiarFila(filas, i, { hecha: true, registro });
+
 // Días seguidos entrenando contando hacia atrás desde hoy (o ayer, si hoy aún no ha tocado).
 export const racha = (dias, desde = new Date()) => {
   if (!dias.size) return 0;
@@ -94,13 +106,21 @@ export const racha = (dias, desde = new Date()) => {
   return total;
 };
 
-// Pesos en orden cronológico (antiguo → nuevo) para dibujar la progresión.
-export const progresion = (registros, max = 10) =>
-  registros
-    .slice(0, max)
-    .map((r) => Number(r.peso))
-    .filter((n) => !Number.isNaN(n))
-    .reverse();
+// Un punto por día con el mejor peso de esa jornada: si haces 4 series,
+// la gráfica no debe dar 4 saltos, sino marcar tu tope del día.
+export const progresion = (registros, max = 10) => {
+  const porDia = registros.reduce((acc, r) => {
+    const p = Number(r.peso);
+    if (Number.isNaN(p)) return acc;
+    acc[r.fecha] = Math.max(acc[r.fecha] ?? 0, p);
+    return acc;
+  }, {});
+
+  return Object.keys(porDia)
+    .sort()
+    .slice(-max)
+    .map((f) => porDia[f]);
+};
 
 // Mezcla la rutina del código con lo que la usuaria añadió o escondió.
 export const rutinaFinal = (base, personalizados, dia) => {
@@ -255,3 +275,18 @@ export const recordsDelDia = (historico, fecha) =>
       return mejorHoy > mejorAntes ? { ejercicio, peso: mejorHoy, anterior: mejorAntes } : null;
     })
     .filter(Boolean);
+
+export const FIN = "gymbro-fin";
+
+// Marca de "entreno terminado" de hoy, para poder cerrarlo sin hacerlo todo.
+export const cargarFin = (perfil) => {
+  try {
+    const d = JSON.parse(localStorage.getItem(`${FIN}-${perfil}`));
+    return d && d.fecha === hoy() ? d.fin : null;
+  } catch {
+    return null;
+  }
+};
+
+export const guardarFin = (perfil, fin) =>
+  localStorage.setItem(`${FIN}-${perfil}`, JSON.stringify({ fecha: hoy(), fin }));
