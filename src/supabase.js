@@ -147,3 +147,35 @@ export const traerTodo = async () => {
   if (error) throw error;
   return data;
 };
+
+export const traerPlanes = async () => {
+  const { data, error } = await supabase
+    .from("planes")
+    .select("id, texto, hecho, hecho_por, orden")
+    .order("orden");
+  if (error) throw error;
+  return data;
+};
+
+export const anadirPlan = async (texto, orden) => {
+  const { data, error } = await supabase
+    .from("planes")
+    .insert({ texto: texto.trim(), orden })
+    .select("id, texto, hecho, hecho_por, orden")
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const marcarPlan = async (id, hecho, perfil) => {
+  const { error } = await supabase
+    .from("planes")
+    .update({ hecho, hecho_por: hecho ? perfil : null, hecho_el: hecho ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw error;
+};
+
+export const borrarPlan = async (id) => {
+  const { error } = await supabase.from("planes").delete().eq("id", id);
+  if (error) throw error;
+};

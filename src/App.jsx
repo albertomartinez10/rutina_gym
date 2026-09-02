@@ -19,6 +19,7 @@ import Descanso from "./Descanso.jsx";
 import Logros from "./Logros.jsx";
 import Calendario from "./Calendario.jsx";
 import Pique from "./Pique.jsx";
+import Planes from "./Planes.jsx";
 import { porPerfil, resumenDe } from "./pique.js";
 import { soportadas, activar, desactivar, yaActivadas, avisar, porQueNoHayAvisos } from "./notificaciones.js";
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
@@ -430,6 +431,8 @@ export default function App() {
         />
       )}
 
+      {pantalla === "planes" && <Planes perfil={perfil} color={quien.color} avisar={setAviso} />}
+
       {pantalla === "calendario" && (
         <Calendario
           historico={historico}
@@ -467,6 +470,7 @@ export default function App() {
           ["medallas", "🏅", "Medallas"],
           ["calendario", "📅", "Calendario"],
           ["pique", "🔥", "Pique"],
+          ["planes", "💛", "Planes"],
         ].map(([id, icono, texto]) => (
           <button
             key={id}
@@ -782,8 +786,8 @@ const s = {
     bottom: 0,
     zIndex: 30,
     display: "flex",
-    gap: "2px",
-    padding: "6px 6px calc(6px + env(safe-area-inset-bottom))",
+    gap: "1px",
+    padding: "6px 4px calc(6px + env(safe-area-inset-bottom))",
     background: "rgba(11,16,32,0.94)",
     backdropFilter: "blur(14px)",
     borderTop: "1px solid rgba(255,255,255,0.08)",
@@ -795,16 +799,16 @@ const s = {
     flexDirection: "column",
     alignItems: "center",
     gap: "2px",
-    padding: "8px 2px",
-    borderRadius: "12px",
+    padding: "8px 1px",
+    borderRadius: "10px",
     border: "none",
     background: "transparent",
     color: "#94a3b8",
-    fontSize: "10px",
+    fontSize: "9px",
     fontWeight: 700,
     cursor: "pointer",
   },
-  menuIcono: { fontSize: "19px", lineHeight: 1 },
+  menuIcono: { fontSize: "17px", lineHeight: 1 },
   menuActivo: { background: "rgba(255,255,255,0.09)" },
   menuPerfil: { borderLeft: "1px solid rgba(255,255,255,0.1)", borderRadius: 0 },
   avisosBoton: {
