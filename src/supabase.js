@@ -45,10 +45,10 @@ export const traerPersonalizados = async (perfil) => {
   return data;
 };
 
-export const anadirEjercicio = async (perfil, dia, nombre, series, reps) => {
+export const anadirEjercicio = async (perfil, dia, nombre, series, reps, imagen = null) => {
   const { data, error } = await supabase
     .from("personalizados")
-    .insert({ perfil, dia, nombre, series, reps, oculto: false })
+    .insert({ perfil, dia, nombre, series, reps, imagen, oculto: false })
     .select("id, dia, nombre, series, reps, imagen, oculto")
     .single();
   if (error) throw error;

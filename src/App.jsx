@@ -24,6 +24,7 @@ import { soportadas, activar, desactivar, yaActivadas, avisar, porQueNoHayAvisos
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import { rutinaDe } from "./rutinas.js";
+import Galeria from "./Galeria.jsx";
 import Grafica from "./Grafica.jsx";
 
 export default function App() {
@@ -230,9 +231,9 @@ export default function App() {
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
 
-  const anadir = async (nombre, ser, reps) => {
+  const anadir = async (nombre, ser, reps, imagen = null) => {
     try {
-      const fila = await anadirEjercicio(perfil, diaActivo, nombre, ser || "3", reps || "10-12");
+      const fila = await anadirEjercicio(perfil, diaActivo, nombre, ser || "3", reps || "10-12", imagen);
       setPersonalizados((p) => [...p, fila]);
       setAviso("Ejercicio añadido 💪");
     } catch {
@@ -369,7 +370,15 @@ export default function App() {
             borrar={borrar}
           />
         ))}
-        {editando && <NuevoEjercicio anadir={anadir} restaurar={restaurar} />}
+        {editando && (
+          <>
+            <Galeria
+              yaPuestos={ejercicios.map((e) => e.nombre)}
+              anadir={(e) => anadir(e.nombre, "3", "10-12", e.imagen)}
+            />
+            <NuevoEjercicio anadir={anadir} restaurar={restaurar} />
+          </>
+        )}
 
         {completados > 0 && (
           <button onClick={terminarEntreno} style={s.terminar}>
