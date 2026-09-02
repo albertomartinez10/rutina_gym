@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
 
+/* Con estilos en línea, sin esto cualquier width:100% + padding se sale de la pantalla */
+*, *::before, *::after { box-sizing: border-box; }
 * { -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;

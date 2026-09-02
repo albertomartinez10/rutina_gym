@@ -279,24 +279,34 @@ export default function App() {
     <div style={s.page}>
 
       <header style={s.header}>
-        <div style={s.halo}>
-          <img src="/gymbro.jpeg" alt="Tu gymbro" className="foto" style={s.foto} />
-        </div>
-        <h1 className="titulo" style={s.titulo}>De parte de tu gymbro {"<3"}</h1>
-        <p style={s.frase}>{fraseDelDia()}</p>
-        {diasSeguidos > 1 && (
+        {pantalla === "rutina" && (
+          <div style={s.halo}>
+            <img src="/gymbro.jpeg" alt="Tu gymbro" className="foto" style={s.foto} />
+          </div>
+        )}
+        <h1
+          className="titulo"
+          style={{ ...s.titulo, ...(pantalla === "rutina" ? null : s.tituloCorto) }}
+        >
+          De parte de tu gymbro {"<3"}
+        </h1>
+        {pantalla === "rutina" && <p style={s.frase}>{fraseDelDia()}</p>}
+        {pantalla === "rutina" && diasSeguidos > 1 && (
           <p style={s.racha}>🔥 {diasSeguidos} días seguidos. No rompas la cadena</p>
         )}
-        <p style={{ ...s.deQuien, color: quien.color }}>
-          {quien.emoji} Estás en el perfil de {quien.nombre}
-        </p>
-        {soportadas() ? (
-          <button onClick={cambiarAvisos} style={{ ...s.avisosBoton, ...(avisos ? s.avisosOn : null) }}>
-            {avisos ? "🔔 Avisos activados" : "🔕 Activar avisos del otro"}
-          </button>
-        ) : (
-          <p style={s.avisosPista}>🔕 {porQueNoHayAvisos()}</p>
+        {pantalla === "rutina" && (
+          <p style={{ ...s.deQuien, color: quien.color }}>
+            {quien.emoji} Estás en el perfil de {quien.nombre}
+          </p>
         )}
+        {pantalla === "rutina" &&
+          (soportadas() ? (
+            <button onClick={cambiarAvisos} style={{ ...s.avisosBoton, ...(avisos ? s.avisosOn : null) }}>
+              {avisos ? "🔔 Avisos activados" : "🔕 Activar avisos del otro"}
+            </button>
+          ) : (
+            <p style={s.avisosPista}>🔕 {porQueNoHayAvisos()}</p>
+          ))}
         {sinConexion && (
           <p style={s.offline}>
             Sin conexión
@@ -486,6 +496,7 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
   const ultimo = registros[0];
   const [ampliada, setAmpliada] = useState(false);
   const [nota, setNota] = useState("");
+  const [ponerNota, setPonerNota] = useState(false);
   const estimado = mejorEstimado(registros);
   const filas = filasDe(guardadas, Number(ej.series) || 1, ultimo?.peso ?? "", ultimo?.reps ?? "");
   const anteriores = seriesAnteriores(registros);
@@ -553,19 +564,12 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
         )}
       </div>
 
-      <div style={s.badges}>
-        <span style={s.badge}>{ej.series} series</span>
-        <span style={s.badge}>{ej.reps} reps</span>
-        {ultimo && <span style={s.badgeUltimo}>último: {ultimo.peso} kg</span>}
-        {estimado && <span style={s.badge1rm} title="Máximo estimado a 1 repetición">1RM ≈ {estimado} kg</span>}
+      <div style={s.datos}>
+        <span>{ej.series}×{ej.reps}</span>
+        {ultimo && <span style={s.datoVerde}>último {ultimo.peso} kg</span>}
+        {estimado && <span style={s.datoMorado} title="Máximo estimado a 1 repetición">1RM {estimado}</span>}
+        {meta && <span style={s.datoMeta}>{meta.falta} kg → {meta.nombre}</span>}
       </div>
-
-      {meta && (
-        <p style={s.siguienteMedalla}>
-          <img src={meta.medalla} alt="" style={s.medallaMini} />
-          faltan {meta.falta} kg para {meta.nombre}
-        </p>
-      )}
 
       <div style={s.series}>
         <div style={s.serieCabecera}>
@@ -615,16 +619,24 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
         })}
       </div>
 
-      <input
-        placeholder="Nota (opcional): sensaciones, máquina, altura del asiento…"
-        value={nota}
-        onChange={(e) => setNota(e.target.value)}
-        style={{ ...s.input, width: "100%", marginTop: "8px", fontSize: "13px" }}
-      />
+      <div style={s.pie}>
+        <button onClick={() => setPonerNota((v) => !v)} style={s.pieBoton} aria-expanded={ponerNota}>
+          📝 Nota{nota ? " ✓" : ""}
+        </button>
+        <button onClick={toggle} style={s.pieBoton}>
+          {abierto ? "Ocultar" : "📈 Progresión (" + registros.length + ")"}
+        </button>
+      </div>
 
-      <button onClick={toggle} style={s.verMas}>
-        {abierto ? "Ocultar progresión" : "📈 Progresión e histórico (" + registros.length + ")"}
-      </button>
+      {ponerNota && (
+        <input
+          placeholder="Sensaciones, máquina, altura del asiento…"
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          style={s.notaInput}
+          autoFocus
+        />
+      )}
 
       {abierto && (
         <>
@@ -716,15 +728,9 @@ const s = {
     background: "conic-gradient(from 180deg,#60a5fa,#a78bfa,#4ade80,#60a5fa)",
     boxShadow: "0 0 40px rgba(96,165,250,0.35)",
   },
-  lema: {
-    margin: "8px 0 0",
-    fontSize: "13px",
-    color: "#cbd5e1",
-    fontWeight: 600,
-  },
   foto: {
-    width: "120px",
-    height: "120px",
+    width: "84px",
+    height: "84px",
     objectFit: "cover",
     borderRadius: "50%",
     display: "block",
@@ -768,10 +774,7 @@ const s = {
     fontStyle: "italic",
     fontWeight: 400,
   },
-  sticky: {
-    paddingTop: "10px",
-    marginBottom: "18px",
-  },
+  sticky: { marginBottom: "12px" },
   menu: {
     position: "fixed",
     left: 0,
@@ -805,8 +808,8 @@ const s = {
   menuActivo: { background: "rgba(255,255,255,0.09)" },
   menuPerfil: { borderLeft: "1px solid rgba(255,255,255,0.1)", borderRadius: 0 },
   avisosBoton: {
-    marginTop: "10px",
-    padding: "7px 14px",
+    marginTop: "8px",
+    padding: "6px 12px",
     borderRadius: "99px",
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.04)",
@@ -817,7 +820,7 @@ const s = {
   },
   avisosPista: { margin: "10px 0 0", fontSize: "11px", color: "#fbbf24", lineHeight: 1.4 },
   avisosOn: { borderColor: "rgba(74,222,128,0.5)", color: "#4ade80" },
-  deQuien: { margin: "8px 0 0", fontSize: "12px", fontWeight: 700 },
+  deQuien: { margin: "6px 0 0", fontSize: "11px", fontWeight: 700 },
   racha: {
     margin: "8px 0 0",
     fontSize: "13px",
@@ -957,19 +960,19 @@ const s = {
     borderRadius: "22px",
     padding: "16px",
   },
-  lista: { display: "grid", gap: "18px" },
+  lista: { display: "grid", gap: "12px" },
   card: {
     background: "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025))",
     border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "22px",
-    padding: "16px",
+    borderRadius: "18px",
+    padding: "12px",
     backdropFilter: "blur(8px)",
     boxShadow: "0 10px 30px rgba(2,6,23,0.35)",
   },
   nombre: { flex: 1, minWidth: "110px", fontSize: "16px", margin: 0, fontWeight: 700 },
   miniCaja: {
-    width: "84px",
-    height: "84px",
+    width: "64px",
+    height: "64px",
     flexShrink: 0,
     padding: "4px",
     borderRadius: "14px",
@@ -988,12 +991,47 @@ const s = {
   sinGif: {
     display: "grid",
     placeItems: "center",
-    width: "84px",
-    height: "84px",
+    width: "64px",
+    height: "64px",
     flexShrink: 0,
     borderRadius: "12px",
     background: "rgba(255,255,255,0.04)",
     fontSize: "40px",
+  },
+  datos: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "10px",
+    margin: "0 0 10px",
+    fontSize: "11px",
+    color: "#94a3b8",
+    fontWeight: 600,
+  },
+  datoVerde: { color: "#4ade80" },
+  datoMorado: { color: "#c084fc" },
+  datoMeta: { display: "flex", alignItems: "center", gap: "3px", color: "#64748b" },
+  pie: { display: "flex", gap: "6px" },
+  pieBoton: {
+    flex: 1,
+    padding: "9px 6px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "transparent",
+    color: "#94a3b8",
+    fontSize: "12px",
+    cursor: "pointer",
+  },
+  notaInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    marginTop: "6px",
+    padding: "10px",
+    fontSize: "16px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.05)",
+    color: "#fff",
   },
   badges: { display: "flex", flexWrap: "wrap", gap: "8px", margin: "12px 0" },
   badge: {
@@ -1077,8 +1115,8 @@ const s = {
   },
   vacio: { color: "#64748b", fontSize: "14px", padding: "10px 0" },
   frase: {
-    margin: "10px 0 0",
-    fontSize: "14px",
+    margin: "6px 0 0",
+    fontSize: "12px",
     color: "#93c5fd",
     fontStyle: "italic",
     minHeight: "20px",
@@ -1111,13 +1149,7 @@ const s = {
     boxShadow: "0 0 14px rgba(96,165,250,0.5)",
     transition: "width .5s cubic-bezier(.4,0,.2,1)",
   },
-  cabecera: {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "10px",
-    marginBottom: "12px",
-  },
+  cabecera: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "8px" },
   cardHecha: {
     borderColor: "rgba(74,222,128,0.45)",
     background: "linear-gradient(180deg, rgba(74,222,128,0.12), rgba(74,222,128,0.03))",

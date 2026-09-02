@@ -16,10 +16,10 @@ export default function Ano({ ano, marcados, color, onDia, cambiarAno }) {
         <button onClick={() => cambiarAno(ano + 1)} style={s.mover} aria-label="Año siguiente">›</button>
       </div>
 
-      {/* En móvil no caben 53 semanas: se desliza a lo ancho. */}
-      <div style={s.scroll}>
+      {/* Las 53 semanas se reparten el ancho disponible: cabe el año entero. */}
+      <div>
         <div>
-          <div style={{ ...s.meses, gridTemplateColumns: `repeat(${columnas.length}, 11px)` }}>
+          <div style={{ ...s.meses, gridTemplateColumns: `repeat(${columnas.length}, 1fr)` }}>
             {MESES.map((m, i) => (
               <span key={m} style={{ ...s.mes, gridColumnStart: (meses[i] ?? 0) + 1 }}>
                 {m}
@@ -27,7 +27,7 @@ export default function Ano({ ano, marcados, color, onDia, cambiarAno }) {
             ))}
           </div>
 
-          <div style={{ ...s.rejilla, gridTemplateColumns: `repeat(${columnas.length}, 11px)` }}>
+          <div style={{ ...s.rejilla, gridTemplateColumns: `repeat(${columnas.length}, 1fr)` }}>
             {columnas.map((semana, i) =>
               semana.map((fecha, j) => (
                 <button
@@ -67,15 +67,16 @@ const s = {
     fontSize: "16px",
     cursor: "pointer",
   },
-  scroll: { overflowX: "auto", paddingBottom: "4px" },
-  meses: { display: "grid", gap: "2px", marginBottom: "4px" },
-  mes: { fontSize: "10px", color: "#64748b", fontWeight: 700, gridRow: 1 },
-  rejilla: { display: "grid", gridAutoFlow: "column", gridTemplateRows: "repeat(7, 11px)", gap: "2px" },
+
+  meses: { display: "grid", gap: "1px", marginBottom: "4px" },
+  mes: { fontSize: "9px", color: "#64748b", fontWeight: 700, gridRow: 1, whiteSpace: "nowrap" },
+  rejilla: { display: "grid", gridAutoFlow: "column", gridTemplateRows: "repeat(7, auto)", gap: "1px" },
   celda: {
-    width: "11px",
-    height: "11px",
+    width: "100%",
+    aspectRatio: "1",
+    minWidth: 0,
     padding: 0,
-    borderRadius: "3px",
+    borderRadius: "2px",
     border: "none",
     background: "rgba(255,255,255,0.07)",
     cursor: "pointer",

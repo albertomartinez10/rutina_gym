@@ -22,6 +22,7 @@ const pitar = () => {
 
 export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
   const [duracion, setDuracion] = useState(null);
+  const [abierto, setAbierto] = useState(false);
   const [restante, setRestante] = useState(null);
   const fin = useRef(null);
 
@@ -54,6 +55,7 @@ export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
   const arrancar = (segundos) => {
     setDuracion(segundos);
     setRestante(segundos);
+    setAbierto(false);
     navigator.vibrate?.(15);
   };
 
@@ -63,6 +65,13 @@ export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
   };
 
   if (duracion === null) {
+    if (!abierto) {
+      return (
+        <button onClick={() => setAbierto(true)} style={s.burbuja} aria-label="Temporizador de descanso">
+          ⏱
+        </button>
+      );
+    }
     return (
       <div style={s.barra}>
         <span style={s.etiqueta}>Descanso</span>
@@ -71,6 +80,7 @@ export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
             {o}s
           </button>
         ))}
+        <button onClick={() => setAbierto(false)} style={s.opcion} aria-label="Cerrar">✕</button>
       </div>
     );
   }
@@ -86,6 +96,22 @@ export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
 }
 
 const s = {
+  burbuja: {
+    position: "fixed",
+    right: "14px",
+    bottom: "calc(84px + env(safe-area-inset-bottom))",
+    zIndex: 20,
+    width: "48px",
+    height: "48px",
+    borderRadius: "50%",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(15,23,42,0.92)",
+    backdropFilter: "blur(12px)",
+    color: "#e2e8f0",
+    fontSize: "20px",
+    cursor: "pointer",
+    boxShadow: "0 8px 24px rgba(2,6,23,0.5)",
+  },
   barra: {
     position: "fixed",
     left: "50%",
