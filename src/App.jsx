@@ -43,6 +43,7 @@ export default function App() {
   const [todos, setTodos] = useState({});
   const [avisos, setAvisos] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [galeria, setGaleria] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [aviso, setAviso] = useState(null);
 
@@ -371,13 +372,12 @@ export default function App() {
           />
         ))}
         {editando && (
-          <>
-            <Galeria
-              yaPuestos={ejercicios.map((e) => e.nombre)}
-              anadir={(e) => anadir(e.nombre, "3", "10-12", e.imagen)}
-            />
+          <div style={s.edicion}>
+            <button onClick={() => setGaleria(true)} style={s.abrirGaleria}>
+              🔍 Buscar ejercicio en la galería
+            </button>
             <NuevoEjercicio anadir={anadir} restaurar={restaurar} />
-          </>
+          </div>
         )}
 
         {completados > 0 && (
@@ -440,6 +440,14 @@ export default function App() {
           </span>
         </div>
       )}
+      {galeria && (
+        <Galeria
+          yaPuestos={ejercicios.map((e) => e.nombre)}
+          anadir={(e) => anadir(e.nombre, "3", "10-12", e.imagen)}
+          cerrar={() => setGaleria(false)}
+        />
+      )}
+
       <Descanso arrancar={pedirDescanso} />
 
       {/* Barra de abajo: se llega con el pulgar sin estirar la mano */}
@@ -828,6 +836,17 @@ const s = {
   },
   medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
   volumen: { margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" },
+  edicion: { display: "grid", gap: "10px" },
+  abrirGaleria: {
+    padding: "14px",
+    borderRadius: "16px",
+    border: "1px dashed rgba(96,165,250,0.5)",
+    background: "rgba(59,130,246,0.1)",
+    color: "#60a5fa",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
   terminar: {
     marginTop: "4px",
     padding: "14px",

@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { GRUPOS, buscar } from "./catalogo.js";
 
-export default function Galeria({ yaPuestos, anadir }) {
+export default function Galeria({ yaPuestos, anadir, cerrar }) {
   const [texto, setTexto] = useState("");
   const [grupo, setGrupo] = useState("");
 
   const resultados = buscar(texto, grupo);
 
   return (
-    <div style={s.caja}>
-      <h2 style={s.titulo}>Galería de ejercicios</h2>
-      <p style={s.pista}>Toca uno para añadirlo al día de hoy</p>
+    <div style={s.fondo} onClick={cerrar}>
+      {/* La hoja se queda quieta: el clic de fuera es el que cierra */}
+      <div style={s.hoja} onClick={(e) => e.stopPropagation()}>
+        <div style={s.barra}>
+          <div>
+            <h2 style={s.titulo}>Galería de ejercicios</h2>
+            <p style={s.pista}>Toca uno para añadirlo al día de hoy</p>
+          </div>
+          <button onClick={cerrar} style={s.cerrar} aria-label="Cerrar galería">✕</button>
+        </div>
 
       <input
         placeholder="Buscar (press, curl, sentadilla…)"
@@ -56,20 +63,46 @@ export default function Galeria({ yaPuestos, anadir }) {
           );
         })}
       </div>
+      </div>
     </div>
   );
 }
 
 const s = {
-  caja: {
-    marginTop: "18px",
-    padding: "16px",
-    borderRadius: "22px",
-    background: "rgba(255,255,255,0.03)",
-    border: "1px dashed rgba(255,255,255,0.18)",
+  fondo: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 40,
+    background: "rgba(2,6,23,0.6)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "flex-end",
   },
-  titulo: { margin: "0 0 2px", fontSize: "16px", color: "#f8fafc" },
-  pista: { margin: "0 0 12px", fontSize: "12px", color: "#64748b" },
+  hoja: {
+    width: "100%",
+    maxHeight: "82vh",
+    overflowY: "auto",
+    padding: "16px 14px calc(20px + env(safe-area-inset-bottom))",
+    borderRadius: "24px 24px 0 0",
+    background: "#0f172a",
+    border: "1px solid rgba(255,255,255,0.1)",
+    animation: "hoja .25s ease",
+  },
+  barra: { display: "flex", alignItems: "flex-start", gap: "10px", marginBottom: "12px" },
+  cerrar: {
+    marginLeft: "auto",
+    width: "36px",
+    height: "36px",
+    flexShrink: 0,
+    borderRadius: "50%",
+    border: "none",
+    background: "rgba(255,255,255,0.08)",
+    color: "#e2e8f0",
+    fontSize: "15px",
+    cursor: "pointer",
+  },
+  titulo: { margin: 0, fontSize: "16px", color: "#f8fafc" },
+  pista: { margin: "2px 0 0", fontSize: "12px", color: "#64748b" },
   buscador: {
     width: "100%",
     boxSizing: "border-box",

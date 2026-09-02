@@ -1,23 +1,15 @@
 // Sparkline en SVG plano: nada de librerías para 10 puntos.
 export default function Grafica({ pesos }) {
-  // Un punto por día: hasta el segundo día no hay línea que dibujar.
-  if (pesos.length < 2) {
-    return (
-      <p style={aviso}>
-        {pesos.length === 1
-          ? `Hoy: ${pesos[0]} kg. Cuando repitas este ejercicio otro día verás aquí tu progresión 📈`
-          : "Apunta un peso y aquí saldrá tu progresión 📈"}
-      </p>
-    );
-  }
+  if (pesos.length === 0) return <p style={aviso}>Apunta un peso y aquí saldrá tu progresión 📈</p>;
 
   const w = 260;
   const h = 60;
   const min = Math.min(...pesos);
   const max = Math.max(...pesos);
   const rango = max - min || 1;
-  const x = (i) => (i / (pesos.length - 1)) * (w - 8) + 4;
-  const y = (p) => h - 8 - ((p - min) / rango) * (h - 16);
+  const unico = pesos.length === 1;
+  const x = (i) => (pesos.length === 1 ? w / 2 : (i / (pesos.length - 1)) * (w - 8) + 4);
+  const y = (p) => (unico ? h / 2 : h - 8 - ((p - min) / rango) * (h - 16));
 
   const linea = pesos.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p)}`).join(" ");
   const area = `${linea} L${x(pesos.length - 1)},${h} L${x(0)},${h} Z`;
@@ -31,15 +23,21 @@ export default function Grafica({ pesos }) {
             <stop offset="100%" stopColor="#4ade80" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d={area} fill="url(#relleno)" />
+        {!unico && <path d={area} fill="url(#relleno)" />}
         <path d={linea} fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {pesos.map((p, i) => (
           <circle key={i} cx={x(i)} cy={y(p)} r={i === pesos.length - 1 ? 4 : 2.5} fill="#4ade80" />
         ))}
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b" }}>
-        <span>{min} kg</span>
-        <span>{max} kg</span>
+        {unico ? (
+          <span>{pesos[0]} kg · repite el ejercicio otro día para ver la línea</span>
+        ) : (
+          <>
+            <span>{min} kg</span>
+            <span>{max} kg</span>
+          </>
+        )}
       </div>
     </div>
   );

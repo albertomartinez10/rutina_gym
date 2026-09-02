@@ -59,3 +59,4 @@ img, svg { max-width: 100%; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+@keyframes hoja { from { transform: translateY(100%); } }
