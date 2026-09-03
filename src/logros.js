@@ -76,7 +76,7 @@ export const escala = (ejercicio, perfil) => {
 };
 
 export const mejorPeso = (registros) =>
-  registros.reduce((max, r) => Math.max(max, Number(r.peso) || 0), 0);
+  registros.filter((r) => !r.calentamiento).reduce((max, r) => Math.max(max, Number(r.peso) || 0), 0);
 
 // Índice del nivel alcanzado con ese peso, o -1 si aún no llega al primero.
 export const nivelDe = (ejercicio, peso, perfil) => {

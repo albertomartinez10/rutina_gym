@@ -16,6 +16,7 @@ export const guardar = (perfil, historico) =>
   localStorage.setItem(claveDe(perfil), JSON.stringify(historico));
 
 export const hoy = () => new Date().toISOString().slice(0, 10);
+export const ahoraMs = () => Date.now();
 export const fechaCorta = (iso) => iso.split("-").reverse().slice(0, 2).join("/");
 
 // extra lleva lo que devuelve el servidor (id, fecha real) cuando el guardado remoto va bien.
@@ -80,7 +81,10 @@ export const marcarSerie = (series, nombre, i) => ({
 
 // Una fila por serie, cada una con su peso: rara vez se hacen las 4 con el mismo.
 export const filasDe = (series, cuantas, ultimoPeso = "", ultimasReps = "") =>
-  Array.from({ length: cuantas }, (_, i) => series?.[i] ?? { peso: ultimoPeso, reps: ultimasReps, hecha: false });
+  Array.from(
+    { length: cuantas },
+    (_, i) => series?.[i] ?? { peso: ultimoPeso, reps: ultimasReps, hecha: false, calentamiento: false },
+  );
 
 export const cambiarFila = (filas, i, cambios) =>
   filas.map((f, j) => (j === i ? { ...f, ...cambios } : f));
@@ -187,7 +191,7 @@ export const inicioDeMeses = (columnas) =>
 // Volumen de una serie: lo que Hevy llama tonelaje (kg movidos).
 export const volumen = (registros, fecha) =>
   registros
-    .filter((r) => !fecha || r.fecha === fecha)
+    .filter((r) => (!fecha || r.fecha === fecha) && !r.calentamiento)
     .reduce((t, r) => t + Number(r.peso || 0) * Number(r.reps || 0), 0);
 
 // Volumen de todos los ejercicios de un día.
@@ -195,8 +199,11 @@ export const volumenDia = (historico, fecha) =>
   Object.values(historico).reduce((t, regs) => t + volumen(regs, fecha), 0);
 
 // ¿Es el mejor peso que ha levantado nunca en ese ejercicio?
-export const esRecord = (registros, peso) =>
-  registros.length > 0 && Number(peso) > Math.max(...registros.map((r) => Number(r.peso) || 0));
+// El calentamiento no cuenta: si no, dos platos de aproximación regalarían récords.
+export const esRecord = (registros, peso) => {
+  const buenos = registros.filter((r) => !r.calentamiento);
+  return buenos.length > 0 && Number(peso) > Math.max(...buenos.map((r) => Number(r.peso) || 0));
+};
 
 // 1RM estimado por la fórmula de Epley; con 1 repetición es el propio peso.
 export const unaRepeticionMaxima = (peso, reps) => {

@@ -352,7 +352,7 @@ test("recordsDelDia solo cuenta lo que supera dias anteriores", () => {
 test("filasDe crea una fila por serie con el peso de la ultima vez", () => {
   const f = filasDe(undefined, 3, "60", "10");
   assert.equal(f.length, 3);
-  assert.deepEqual(f[0], { peso: "60", reps: "10", hecha: false });
+  assert.deepEqual(f[0], { peso: "60", reps: "10", hecha: false, calentamiento: false });
 });
 
 test("filasDe respeta lo que ya habia apuntado hoy", () => {
@@ -408,4 +408,19 @@ test("seriesAnteriores ignora lo apuntado hoy", () => {
 test("seriesAnteriores no falla la primera vez", () => {
   assert.deepEqual(seriesAnteriores([], "2026-09-01"), []);
   assert.deepEqual(seriesAnteriores([{ peso: "50", fecha: "2026-09-01" }], "2026-09-01"), []);
+});
+
+test("el calentamiento no cuenta como record", () => {
+  const regs = [{ peso: "200", calentamiento: true }, { peso: "60" }];
+  assert.equal(esRecord(regs, "70"), true);
+  assert.equal(esRecord(regs, "50"), false, "50 no supera los 60 efectivos");
+});
+
+test("el calentamiento no suma volumen", () => {
+  const regs = [{ peso: "50", reps: "10", calentamiento: true }, { peso: "50", reps: "10" }];
+  assert.equal(volumen(regs), 500);
+});
+
+test("las filas nuevas nacen sin marcar como calentamiento", () => {
+  assert.equal(filasDe(undefined, 1, "60")[0].calentamiento, false);
 });

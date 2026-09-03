@@ -3,16 +3,16 @@ import {
   cargar, guardar, fechaCorta, delta,
   cargarHechos, guardarHechos, alternar,
   cargarSeries, guardarSeries, racha, progresion, rutinaFinal,
-  filasDe, cambiarFila, seriesHechas, seriesAnteriores,
+  filasDe, cambiarFila, seriesAnteriores,
   hoy, diasEntrenados, volumenDia, esRecord, mejorEstimado,
   cargarCola, guardarCola, encolar, desencolar, fusionar,
-  cargarSesion, guardarSesion, duracion, recordsDelDia, cargarFin, guardarFin,
+  cargarSesion, guardarSesion, duracion, recordsDelDia, cargarFin, guardarFin, ahoraMs,
   apuntar as apuntarEn, borrar as borrarEn,
 } from "./historico.js";
 import { fraseDelDia, celebracion, finDeDia, fraseLogro } from "./frases.js";
 import {
   traerHistorico, insertarRegistro, borrarRegistro,
-  traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado,
+  traerPersonalizados, anadirEjercicio, ocultarEjercicio, quitarPersonalizado, editarRegistro, restaurarRegistro,
   traerEntrenos, guardarEntreno, traerTodo,
 } from "./supabase.js";
 import Descanso from "./Descanso.jsx";
@@ -25,6 +25,7 @@ import { soportadas, activar, desactivar, yaActivadas, avisar, porQueNoHayAvisos
 import { PERFILES, cargarPerfil, guardarPerfil, datosPerfil } from "./perfiles.js";
 import { logroNuevo, mejorPeso, nivelDe, siguienteMeta, NIVELES } from "./logros.js";
 import { rutinaDe } from "./rutinas.js";
+import { sugerencia, recuerdo } from "./sesiones.js";
 import Galeria from "./Galeria.jsx";
 import Grafica from "./Grafica.jsx";
 
@@ -41,6 +42,13 @@ export default function App() {
   const [inicioSesion, setInicioSesion] = useState(() => cargarSesion(cargarPerfil()));
   const [pedirDescanso, setPedirDescanso] = useState(0);
   const [finSesion, setFinSesion] = useState(() => cargarFin(cargarPerfil()));
+  const [ahora, setAhora] = useState(ahoraMs);
+
+  // Un tic por minuto mantiene viva la duración del entreno sin recalcular en cada render.
+  useEffect(() => {
+    const t = setInterval(() => setAhora(ahoraMs()), 60000);
+    return () => clearInterval(t);
+  }, []);
   const [todos, setTodos] = useState({});
   const [avisos, setAvisos] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -113,7 +121,7 @@ export default function App() {
   // El aviso se va solo a los 3s.
   useEffect(() => {
     if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), aviso.frase ? 5000 : 3000);
+    const t = setTimeout(() => setAviso(null), aviso.deshacer ? 6000 : aviso.frase ? 5000 : 3000);
     return () => clearTimeout(t);
   }, [aviso]);
 
@@ -133,9 +141,9 @@ export default function App() {
   // Marcar un ejercicio o una serie ya cuenta como día de gimnasio: se apunta solo.
   const empezarSesion = () => {
     if (inicioSesion) return;
-    const ahora = Date.now();
-    guardarSesion(perfil, ahora);
-    setInicioSesion(ahora);
+    const arranque = ahoraMs();
+    guardarSesion(perfil, arranque);
+    setInicioSesion(arranque);
   };
 
   const marcarHoyEntrenado = async () => {
@@ -171,7 +179,7 @@ export default function App() {
 
   // Cerrar el entreno con lo que haya hecho, sin obligar a completar la rutina.
   const terminarEntreno = () => {
-    const fin = finSesion ? null : Date.now();
+    const fin = finSesion ? null : ahoraMs();
     guardarFin(perfil, fin);
     setFinSesion(fin);
     if (fin) {
@@ -182,26 +190,26 @@ export default function App() {
 
   const vibrar = (ms) => navigator.vibrate?.(ms);
 
-  const apuntar = async (nombre, peso, reps, nota) => {
+  const apuntar = async (nombre, peso, reps, nota, calentamiento = false) => {
     const d = delta(historico[nombre] || [], peso);
     let extra = {};
     try {
-      extra = await insertarRegistro(perfil, nombre, peso, reps, nota);
+      extra = await insertarRegistro(perfil, nombre, peso, reps, nota, calentamiento);
       setSinConexion(false);
     } catch {
       // Sin cobertura: a la cola, que se sube sola cuando vuelva.
-      const tmp = Date.now();
+      const tmp = ahoraMs();
       extra = { tmp };
       setCola((c) => encolar(c, { perfil, ejercicio: nombre, peso, reps, nota, fecha: hoy(), tmp }));
       setSinConexion(true);
     }
-    setHistorico((h) => apuntarEn(h, nombre, peso, reps, { nota, ...extra }));
+    setHistorico((h) => apuntarEn(h, nombre, peso, reps, { nota, calentamiento, ...extra }));
     // Apuntar peso cuenta como ejercicio hecho: la barra sube sola.
     setHechos((n) => (n.includes(nombre) ? n : [...n, nombre]));
     marcarHoyEntrenado();
-    const record = esRecord(historico[nombre] || [], peso);
+    const record = !calentamiento && esRecord(historico[nombre] || [], peso);
     const antes = mejorPeso(historico[nombre] || []);
-    const logro = logroNuevo(nombre, antes, Number(peso), perfil);
+    const logro = calentamiento ? null : logroNuevo(nombre, antes, Number(peso), perfil);
     if (logro) {
       setAviso({
         texto: `¡${logro.nombre} en ${nombre}!`,
@@ -222,6 +230,24 @@ export default function App() {
     const reg = (historico[nombre] || [])[i];
     setHistorico((h) => borrarEn(h, nombre, i));
     if (reg?.id) await borrarRegistro(reg.id).catch(() => setSinConexion(true));
+
+    // Borrar es fácil de hacer sin querer: se puede volver atrás.
+    setAviso({
+      texto: "Registro borrado",
+      deshacer: async () => {
+        const vuelto = await restaurarRegistro(perfil, { ...reg, ejercicio: nombre }).catch(() => null);
+        setHistorico((h) => apuntarEn(h, nombre, reg.peso, reg.reps, { ...reg, ...vuelto }));
+      },
+    });
+  };
+
+  const editar = async (nombre, i, peso, reps) => {
+    const reg = (historico[nombre] || [])[i];
+    setHistorico((h) => ({
+      ...h,
+      [nombre]: h[nombre].map((r, j) => (j === i ? { ...r, peso, reps } : r)),
+    }));
+    if (reg?.id) await editarRegistro(reg.id, peso, reps).catch(() => setAviso("No se ha podido guardar el cambio"));
   };
 
   const misEntrenos = useMemo(() => entrenos.filter((e) => e.perfil === perfil), [entrenos, perfil]);
@@ -230,6 +256,7 @@ export default function App() {
   const rutina = rutinaDe(perfil);
   const volumenHoy = volumenDia(historico, hoy());
   const recordsHoy = recordsDelDia(historico, hoy());
+  const antano = useMemo(() => recuerdo(historico, hoy()), [historico]);
 
   const ejercicios = rutinaFinal(rutina, personalizados, diaActivo);
 
@@ -317,6 +344,14 @@ export default function App() {
       </header>
 
       {pantalla === "rutina" && (<>
+      {antano && (
+        <p style={s.recuerdo}>
+          🕰️ Hace {antano.hace === 1 ? "un año" : `${antano.hace} años`} hoy:{" "}
+          {antano.ejercicios.map((e) => e.nombre).slice(0, 2).join(", ")}
+          {antano.volumen > 0 && ` · ${antano.volumen.toLocaleString("es-ES")} kg`}
+        </p>
+      )}
+
       <div className="sticky" style={s.sticky}>
       <nav style={s.tabs}>
         {rutina.map((d, i) => (
@@ -380,6 +415,7 @@ export default function App() {
             quitar={() => quitar(ej)}
             apuntar={apuntar}
             borrar={borrar}
+            editar={editar}
           />
         ))}
         {editando && (
@@ -403,7 +439,7 @@ export default function App() {
         <section style={s.resumen}>
           <h2 style={s.resumenTitulo}>Resumen de hoy</h2>
           <div style={s.resumenFilas}>
-            <span>Duración</span><strong>{duracion(inicioSesion, finSesion ?? Date.now()) ?? "—"}</strong>
+            <span>Duración</span><strong>{duracion(inicioSesion, finSesion ?? ahora) ?? "—"}</strong>
             <span>Kilos movidos</span><strong>{volumenHoy.toLocaleString("es-ES")} kg</strong>
             <span>Ejercicios</span><strong>{completados} de {ejercicios.length}</strong>
           </div>
@@ -421,6 +457,8 @@ export default function App() {
 
       {pantalla === "pique" && (
         <Pique
+          perfil={perfil}
+          avisarUI={setAviso}
           mes={new Date().getMonth()}
           datos={Object.fromEntries(
             PERFILES.map((p) => [
@@ -451,6 +489,17 @@ export default function App() {
             {aviso.texto ?? aviso}
             {aviso.frase && <span style={s.avisoFrase}>{aviso.frase}</span>}
           </span>
+          {aviso.deshacer && (
+            <button
+              onClick={() => {
+                aviso.deshacer();
+                setAviso(null);
+              }}
+              style={s.deshacer}
+            >
+              Deshacer
+            </button>
+          )}
         </div>
       )}
       {galeria && (
@@ -496,14 +545,18 @@ export default function App() {
   );
 }
 
-function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas, guardarFilas, alHacerSerie, editando, quitar, abierto, toggle, apuntar, borrar }) {
+function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas, guardarFilas, alHacerSerie, editando, quitar, abierto, toggle, apuntar, borrar, editar }) {
   const ultimo = registros[0];
   const [ampliada, setAmpliada] = useState(false);
   const [nota, setNota] = useState("");
   const [ponerNota, setPonerNota] = useState(false);
+  const [editandoReg, setEditandoReg] = useState(null);
+  const [nuevoPeso, setNuevoPeso] = useState("");
+  const [nuevasReps, setNuevasReps] = useState("");
   const estimado = mejorEstimado(registros);
   const filas = filasDe(guardadas, Number(ej.series) || 1, ultimo?.peso ?? "", ultimo?.reps ?? "");
   const anteriores = seriesAnteriores(registros);
+  const sugerido = sugerencia(registros, ej.reps, hoy());
 
   const editarFila = (i, cambios) => guardarFilas(cambiarFila(filas, i, cambios));
 
@@ -514,18 +567,9 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
       return;
     }
     if (!f.peso) return;
-    apuntar(ej.nombre, f.peso, f.reps, nota);
+    apuntar(ej.nombre, f.peso, f.reps, nota, Boolean(f.calentamiento));
     guardarFilas(cambiarFila(filas, i, { hecha: true }));
     alHacerSerie();
-  };
-
-  const enviar = (e) => {
-    e.preventDefault();
-    if (!peso) return;
-    // Cierra el teclado del móvil: si no, tapa el aviso de confirmación.
-    e.currentTarget.querySelector("input")?.blur();
-    apuntar(ej.nombre, peso, reps, nota);
-    setNota("");
   };
 
   return (
@@ -568,6 +612,18 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
         )}
       </div>
 
+      {sugerido && (
+        <button
+          type="button"
+          onClick={() => guardarFilas(filas.map((f) => (f.hecha ? f : { ...f, peso: String(sugerido.peso) })))}
+          style={{ ...s.sugerencia, ...(sugerido.subir ? s.sugerenciaSube : null) }}
+        >
+          {sugerido.subir
+            ? `↑ Toca subir a ${sugerido.peso} kg (la última vez completaste todo con ${sugerido.anterior})`
+            : `Repite ${sugerido.peso} kg y cierra las repeticiones`}
+        </button>
+      )}
+
       <div style={s.datos}>
         <span>{ej.series}×{ej.reps}</span>
         {ultimo && <span style={s.datoVerde}>último {ultimo.peso} kg</span>}
@@ -588,7 +644,15 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
           const previa = anteriores[i];
           return (
             <div key={i} style={{ ...s.serieFila, ...(f.hecha ? s.serieHecha : null) }}>
-              <span style={s.serieNum}>{i + 1}</span>
+              <button
+                type="button"
+                onClick={() => editarFila(i, { calentamiento: !f.calentamiento })}
+                style={{ ...s.serieNum, ...(f.calentamiento ? s.serieCalienta : null) }}
+                title={f.calentamiento ? "Serie de calentamiento" : "Marcar como calentamiento"}
+                aria-label={`Serie ${i + 1}${f.calentamiento ? ", de calentamiento" : ""}`}
+              >
+                {f.calentamiento ? "W" : i + 1}
+              </button>
               <span style={s.anterior}>{previa ? `${previa.peso}×${previa.reps || "-"}` : "—"}</span>
               <input
                 type="number"
@@ -650,9 +714,51 @@ function Ejercicio({ ej, registros, hecho, marcar, nivel, meta, filas: guardadas
           {registros.map((r, i) => (
             <li key={i} style={s.registro}>
               <span style={s.fecha}>{fechaCorta(r.fecha)}</span>
-              <span>
-                {r.peso} kg{r.reps ? " × " + r.reps : ""}
-              </span>
+
+              {editandoReg === i ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    editar(ej.nombre, i, nuevoPeso, nuevasReps);
+                    setEditandoReg(null);
+                  }}
+                  style={s.formEditar}
+                >
+                  <input
+                    type="number"
+                    step="0.5"
+                    inputMode="decimal"
+                    value={nuevoPeso}
+                    onChange={(e) => setNuevoPeso(e.target.value)}
+                    style={s.inputSerie}
+                    aria-label="Nuevo peso"
+                    autoFocus
+                  />
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={nuevasReps}
+                    onChange={(e) => setNuevasReps(e.target.value)}
+                    style={s.inputSerie}
+                    aria-label="Nuevas repeticiones"
+                  />
+                  <button type="submit" style={s.guardarEdit}>✓</button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditandoReg(i);
+                    setNuevoPeso(r.peso);
+                    setNuevasReps(r.reps ?? "");
+                  }}
+                  style={s.editarReg}
+                  title="Tocar para corregir"
+                >
+                  {r.peso} kg{r.reps ? " × " + r.reps : ""}
+                  {r.calentamiento && <span style={s.marcaW}> W</span>}
+                </button>
+              )}
+
               {r.nota && <span style={s.notaRegistro} title={r.nota}>📝</span>}
               <button onClick={() => borrar(ej.nombre, i)} style={s.borrar} aria-label="Borrar registro">
                 ✕
@@ -843,6 +949,15 @@ const s = {
   },
   medallaEj: { width: "13px", height: "22px", objectFit: "contain" },
   volumen: { margin: "8px 0 0", fontSize: "12px", color: "#94a3b8" },
+  recuerdo: {
+    margin: "0 0 12px",
+    padding: "10px 12px",
+    borderRadius: "12px",
+    background: "rgba(168,85,247,0.1)",
+    border: "1px solid rgba(168,85,247,0.25)",
+    fontSize: "12px",
+    color: "#c084fc",
+  },
   edicion: { display: "grid", gap: "10px" },
   abrirGaleria: {
     padding: "14px",
@@ -912,7 +1027,38 @@ const s = {
     borderRadius: "8px",
   },
   serieHecha: { background: "rgba(74,222,128,0.12)" },
-  serieNum: { fontSize: "13px", color: "#94a3b8", fontWeight: 700, textAlign: "center" },
+  serieNum: {
+    padding: 0,
+    height: "30px",
+    borderRadius: "8px",
+    border: "none",
+    background: "transparent",
+    fontSize: "13px",
+    color: "#94a3b8",
+    fontWeight: 700,
+    textAlign: "center",
+    cursor: "pointer",
+  },
+  serieCalienta: { background: "rgba(251,146,60,0.2)", color: "#fb923c" },
+  sugerencia: {
+    width: "100%",
+    textAlign: "left",
+    margin: "0 0 8px",
+    padding: "8px 10px",
+    borderRadius: "10px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#94a3b8",
+    fontSize: "11px",
+    lineHeight: 1.3,
+    cursor: "pointer",
+  },
+  sugerenciaSube: {
+    borderColor: "rgba(74,222,128,0.4)",
+    background: "rgba(74,222,128,0.08)",
+    color: "#4ade80",
+    fontWeight: 700,
+  },
   anterior: { fontSize: "12px", color: "#64748b", textAlign: "center" },
   inputSerie: {
     width: "100%",
@@ -1054,6 +1200,28 @@ const s = {
     fontSize: "13px",
     fontWeight: 600,
   },
+  editarReg: {
+    flex: 1,
+    textAlign: "left",
+    padding: "4px 6px",
+    borderRadius: "8px",
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "#e2e8f0",
+    fontSize: "14px",
+    cursor: "text",
+  },
+  marcaW: { color: "#fb923c", fontSize: "11px", fontWeight: 700 },
+  formEditar: { flex: 1, display: "flex", gap: "4px" },
+  guardarEdit: {
+    width: "34px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#22c55e",
+    color: "#fff",
+    fontSize: "13px",
+    cursor: "pointer",
+  },
   notaRegistro: { fontSize: "12px", cursor: "help" },
   badgeUltimo: {
     background: "rgba(34,197,94,0.15)",
@@ -1182,6 +1350,17 @@ const s = {
     margin: "8px 0 0",
     fontSize: "12px",
     color: "#fbbf24",
+  },
+  deshacer: {
+    marginLeft: "10px",
+    padding: "6px 12px",
+    borderRadius: "99px",
+    border: "1px solid rgba(96,165,250,0.6)",
+    background: "transparent",
+    color: "#60a5fa",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
   avisoFrase: { display: "block", fontSize: "12px", fontWeight: 500, color: "#94a3b8", marginTop: "2px" },
   avisoMedalla: { width: "22px", height: "38px", objectFit: "contain", verticalAlign: "-12px", marginRight: "8px" },

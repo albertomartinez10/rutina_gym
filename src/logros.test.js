@@ -63,3 +63,7 @@ test("logroNuevo solo salta al cruzar un umbral", () => {
 test("logroNuevo no salta si el peso baja", () => {
   assert.equal(logroNuevo("Sentadilla", 50, 20, "nuria"), null);
 });
+
+test("una serie de calentamiento no regala medallas", () => {
+  assert.equal(mejorPeso([{ peso: "200", calentamiento: true }]), 0);
+});

@@ -45,12 +45,13 @@ export default function Descanso({ arrancar: senal = 0, porDefecto = 90 }) {
     return () => clearInterval(id);
   }, [duracion]);
 
-  // Al marcar una serie, el descanso empieza solo.
-  useEffect(() => {
-    if (!senal) return;
+  // Al marcar una serie, el descanso empieza solo (la señal es la marca de tiempo del toque).
+  const [ultimaSenal, setUltimaSenal] = useState(0);
+  if (senal && senal !== ultimaSenal) {
+    setUltimaSenal(senal);
     setDuracion(porDefecto);
     setRestante(porDefecto);
-  }, [senal, porDefecto]);
+  }
 
   const arrancar = (segundos) => {
     setDuracion(segundos);

@@ -4,6 +4,8 @@ import { guardarEntreno, borrarEntreno, urlFoto, reaccionar, quitarReaccion, com
 import { comprimir } from "./foto.js";
 import { datosPerfil } from "./perfiles.js";
 import Ano from "./Ano.jsx";
+import Sesion from "./Sesion.jsx";
+import Peso from "./Peso.jsx";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -13,6 +15,7 @@ const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
 const EMOJIS = ["❤️", "🔥", "💪", "😮"];
 
 export default function Calendario({ historico, entrenos, setEntrenos, perfil, color, avisar }) {
+  const [comoProgreso, setComoProgreso] = useState(false);
   const ahora = new Date();
   const [ano, setAno] = useState(ahora.getFullYear());
   const [mes, setMes] = useState(ahora.getMonth());
@@ -22,6 +25,7 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
   const mios = entrenos.filter((e) => e.perfil === perfil);
   const marcados = diasEntrenados(historico, mios);
   const delDia = entrenos.filter((e) => e.fecha === dia && e.foto);
+  const progreso = entrenos.filter((e) => e.tipo === "progreso" && e.foto && e.perfil === perfil);
   const totalMes = [...marcados].filter((f) => f.startsWith(`${ano}-${String(mes + 1).padStart(2, "0")}`)).length;
 
   const irA = (fecha) => {
@@ -43,7 +47,7 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
 
     setSubiendo(true);
     try {
-      const fila = await guardarEntreno(perfil, dia, await comprimir(archivo), null);
+      const fila = await guardarEntreno(perfil, dia, await comprimir(archivo), null, comoProgreso ? "progreso" : "entreno");
       setEntrenos((x) => [{ ...fila, reacciones: [], comentarios: [] }, ...x]);
       avisar?.("Foto guardada 📸");
     } catch {
@@ -111,6 +115,8 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
 
   return (
     <section>
+      <Peso perfil={perfil} color={color} avisar={avisar} />
+
       <Ano
         ano={ano}
         marcados={marcados}
@@ -165,6 +171,18 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
           {marcados.has(dia) && <span style={s.hecho}> · entrenaste 💪</span>}
         </h2>
 
+        <Sesion historico={historico} fecha={dia} color={color} />
+
+        <label style={s.tipoFoto}>
+          <input
+            type="checkbox"
+            checked={comoProgreso}
+            onChange={(e) => setComoProgreso(e.target.checked)}
+            style={{ width: "18px", height: "18px" }}
+          />
+          Es foto de progreso (para comparar cómo vas)
+        </label>
+
         <label style={{ ...s.subir, opacity: subiendo ? 0.6 : 1 }}>
           {subiendo ? "Subiendo…" : "📷 Añadir foto del entreno"}
           {/* capture deja abrir la cámara directamente desde el móvil */}
@@ -172,6 +190,20 @@ export default function Calendario({ historico, entrenos, setEntrenos, perfil, c
         </label>
 
         {delDia.length === 0 && <p style={s.vacio}>Sin fotos de este día todavía</p>}
+
+        {progreso.length > 1 && (
+          <div style={s.progresoCaja}>
+            <p style={s.progresoTitulo}>📸 Tu progreso ({progreso.length} fotos)</p>
+            <div style={s.tira}>
+              {[...progreso].reverse().map((p) => (
+                <figure key={p.id} style={s.tiraItem}>
+                  <img src={urlFoto(p.foto)} alt={`Progreso del ${p.fecha}`} loading="lazy" style={s.tiraFoto} />
+                  <figcaption style={s.tiraFecha}>{fechaCorta(p.fecha)}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={s.galeria}>
           {delDia.map((e) => {
@@ -343,6 +375,20 @@ const s = {
     cursor: "pointer",
   },
   vacio: { color: "#64748b", fontSize: "13px", marginTop: "12px" },
+  tipoFoto: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    margin: "12px 0 8px",
+    fontSize: "12px",
+    color: "#94a3b8",
+  },
+  progresoCaja: { marginTop: "14px" },
+  progresoTitulo: { margin: "0 0 8px", fontSize: "13px", color: "#e2e8f0", fontWeight: 700 },
+  tira: { display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px" },
+  tiraItem: { margin: 0, flexShrink: 0, width: "110px" },
+  tiraFoto: { width: "110px", aspectRatio: "3 / 4", objectFit: "cover", borderRadius: "12px", display: "block" },
+  tiraFecha: { fontSize: "10px", color: "#64748b", textAlign: "center", marginTop: "3px" },
   galeria: { display: "grid", gap: "18px", marginTop: "12px" },
   marco: { position: "relative", margin: 0 },
   foto: { width: "100%", maxHeight: "70vh", objectFit: "cover", borderRadius: "14px", display: "block" },

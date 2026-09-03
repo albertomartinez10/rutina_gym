@@ -1,10 +1,22 @@
 import { NIVELES, logros, siguienteMeta, nivelDe, mejorPeso, escala } from "./logros.js";
 import { fraseMedallero } from "./frases.js";
+import { records, volumenPorGrupo } from "./sesiones.js";
+import { GRUPOS } from "./catalogo.js";
+import { fechaCorta, hoy } from "./historico.js";
+
+const haceDias = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+};
 
 export default function Logros({ historico, perfil, ejercicios, color }) {
   // Pantalla propia: siempre desplegado, sin cabecera plegable.
   const abierto = true;
   const conseguidos = logros(historico, perfil);
+  const misRecords = records(historico);
+  const semana = volumenPorGrupo(historico, haceDias(6), hoy());
+  const maxSemana = Math.max(1, ...Object.values(semana));
 
   const metas = ejercicios
     .map((e) => ({ ejercicio: e.nombre, ...siguienteMeta(e.nombre, historico, perfil) }))
@@ -30,6 +42,34 @@ export default function Logros({ historico, perfil, ejercicios, color }) {
       </div>
 
       <p style={s.animo}>{fraseMedallero(conseguidos.length, ejercicios.length)}</p>
+
+      <div style={s.cuerpo}>
+        <h3 style={s.seccion}>🏆 Tus récords</h3>
+        {misRecords.length === 0 && <p style={s.vacio}>Todavía ninguno. Apunta un peso y empiezan a salir</p>}
+        {misRecords.slice(0, 8).map((r) => (
+          <div key={r.ejercicio} style={s.fila}>
+            <span style={s.nombre}>{r.ejercicio}</span>
+            <span style={s.nivel}>
+              {r.peso} kg{r.reps ? ` × ${r.reps}` : ""}
+            </span>
+            <span style={s.meta}>{fechaCorta(r.fecha)}</span>
+          </div>
+        ))}
+
+        <h3 style={s.seccion}>💪 Series de los últimos 7 días</h3>
+        {Object.keys(semana).length === 0 && <p style={s.vacio}>Esta semana aún no has entrenado</p>}
+        {Object.entries(semana)
+          .sort((a, b) => b[1] - a[1])
+          .map(([grupo, cuantas]) => (
+            <div key={grupo} style={s.barraFila}>
+              <span style={s.grupoNombre}>{GRUPOS[grupo] ?? "Otros"}</span>
+              <div style={s.barraFondo}>
+                <div style={{ ...s.barraRelleno, width: `${(cuantas / maxSemana) * 100}%`, background: color }} />
+              </div>
+              <span style={s.grupoCuenta}>{cuantas}</span>
+            </div>
+          ))}
+      </div>
 
       {abierto && (
         <div style={s.cuerpo}>
@@ -112,6 +152,12 @@ const s = {
   chispa: { width: "13px", height: "22px", objectFit: "contain" },
   cuenta: { fontSize: "14px", fontWeight: 800, minWidth: "16px" },
   flecha: { fontSize: "11px", color: "#64748b" },
+  seccion: { margin: "16px 0 6px", fontSize: "14px", color: "#f8fafc" },
+  barraFila: { display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" },
+  grupoNombre: { width: "68px", fontSize: "12px", color: "#94a3b8" },
+  barraFondo: { flex: 1, height: "8px", borderRadius: "99px", background: "rgba(255,255,255,0.06)" },
+  barraRelleno: { height: "100%", borderRadius: "99px" },
+  grupoCuenta: { width: "22px", textAlign: "right", fontSize: "12px", color: "#cbd5e1", fontWeight: 700 },
   animo: { margin: "0 14px 12px", fontSize: "13px", color: "#93c5fd", fontStyle: "italic" },
   cuerpo: { padding: "0 14px 14px" },
   fila: { padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.06)" },
